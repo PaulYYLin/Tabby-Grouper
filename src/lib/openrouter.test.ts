@@ -140,7 +140,7 @@ describe('classifyTabs', () => {
       { id: 2, title: 'ok', url: 'https://b.com' },
     ]);
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    const userMsg: string = body.messages[0].content;
+    const userMsg: string = body.messages.find((m: { role: string }) => m.role === 'user').content;
     expect(userMsg).not.toContain('x'.repeat(200));
     expect(userMsg).toContain('x'.repeat(80) + '…');
   });
@@ -160,6 +160,7 @@ describe('classifyTabs', () => {
     vi.stubGlobal('fetch', fetchMock);
     await classifyTabs('k', 'm', TABS, '只分組工作相關的分頁');
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(body.messages[0].content).toContain('只分組工作相關的分頁');
+    const userMsg = body.messages.find((m: { role: string }) => m.role === 'user').content;
+    expect(userMsg).toContain('只分組工作相關的分頁');
   });
 });
