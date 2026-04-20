@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tabby Grouper 設定</title>
+    <link rel="stylesheet" href="./options.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Tabby Grouper 設定</h1>
+      <form id="options-form">
+        <label for="api-key">OpenRouter API Key</label>
+        <input
+          id="api-key"
+          name="apiKey"
+          type="password"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="sk-or-..."
+          required
+        />
+        <p class="hint">
+          取得 API Key：
+          <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer"
+            >openrouter.ai/keys</a
+          >
+        </p>
+
+        <label for="model">模型（選填）</label>
+        <input
+          id="model"
+          name="model"
+          type="text"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="google/gemini-2.0-flash-exp:free"
+        />
+        <p class="hint">
+          留空使用預設免費模型。可用模型列表：
+          <a href="https://openrouter.ai/models" target="_blank" rel="noreferrer"
+            >openrouter.ai/models</a
+          >（例：<code>anthropic/claude-sonnet-4-5</code>、<code>openai/gpt-4o-mini</code>）
+        </p>
+
+        <button type="submit">儲存</button>
+        <p id="save-status" class="status"></p>
+      </form>
+    </main>
+    <script type="module" src="./options.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,130 @@
+:root {
+  --brand: #39b54a;
+  --brand-hover: #2fa33f;
+  --brand-disabled: #a9dcb0;
+  --brand-ring: rgba(57, 181, 74, 0.25);
+  --text: #1f2328;
+  --text-muted: #656d76;
+  --border: #d0d7de;
+  --error: #cf222e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 8px;
+  font-family:
+    'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans TC',
+    sans-serif;
+  width: 280px;
+  color: var(--text);
+  background: #f6f8fa;
+}
+
+main {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+h1 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--brand);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.instruction {
+  width: 100%;
+  resize: vertical;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  outline: none;
+}
+
+.instruction:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px var(--brand-ring);
+}
+
+.instruction::placeholder {
+  color: #8c959f;
+  opacity: 1;
+}
+
+button {
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  color: #fff;
+  background: var(--brand);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+button:hover:not(:disabled) {
+  background: var(--brand-hover);
+}
+
+button:disabled {
+  background: var(--brand-disabled);
+  cursor: progress;
+}
+
+.status {
+  margin: 0;
+  min-height: 18px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.status.error {
+  color: var(--error);
+}
+
+.status.success {
+  color: var(--brand);
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.options-link {
+  font-size: 12px;
+  color: var(--brand);
+  text-decoration: none;
+}
+
+.options-link:hover {
+  text-decoration: underline;
+}
+
+.version {
+  font-size: 11px;
+  color: var(--text-muted);
+}
