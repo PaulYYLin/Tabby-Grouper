@@ -14,7 +14,7 @@ export const MAX_INSTRUCTION_LEN = 512;
 const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 
 const MAX_TITLE_LEN = 80;
-const MAX_TOKENS = 512;
+const MAX_TOKENS = 2048;
 
 const SYSTEM_PROMPT = `你是分頁整理助手，任務是把相關分頁分成主題群組。你的首要目標是**完全依照使用者指令產出分組結果**，使用者指令的優先權高於你自己的預設行為。
 
@@ -70,10 +70,21 @@ export async function classifyTabs(
   }
 
   const data = await res.json();
-  const content: string | undefined = data?.choices?.[0]?.message?.content;
+  const choice = data?.choices?.[0];
+  const content: string | undefined = choice?.message?.content;
   if (!content) throw new Error('OpenRouter 回傳空內容');
 
-  const parsed: unknown = JSON.parse(stripCodeFence(content));
+  const finishReason: string | undefined = choice?.finish_reason;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stripCodeFence(content));
+  } catch (err) {
+    if (finishReason === 'length') {
+      throw new Error('AI 回傳被截斷（分頁太多或模型輸出上限太小），請減少分頁或換模型再試');
+    }
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`AI 回傳非合法 JSON：${msg}`);
+  }
   const raw = Array.isArray(parsed)
     ? parsed
     : (parsed as { groups?: unknown })?.groups;
