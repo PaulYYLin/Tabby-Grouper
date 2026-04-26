@@ -18,6 +18,8 @@ const versionEl = document.getElementById('version') as HTMLSpanElement;
 const taskListEl = document.getElementById('task-list') as HTMLUListElement;
 const tasksEmptyEl = document.getElementById('tasks-empty') as HTMLParagraphElement;
 const tasksCountEl = document.getElementById('tasks-count') as HTMLSpanElement;
+const taskSearchEl = document.getElementById('task-search') as HTMLInputElement;
+const tasksNoMatchEl = document.getElementById('tasks-no-match') as HTMLParagraphElement;
 const groupView = document.getElementById('view-group') as HTMLElement;
 const tasksView = document.getElementById('view-tasks') as HTMLElement;
 const tabButtons = document.querySelectorAll<HTMLButtonElement>('.tab');
@@ -81,6 +83,8 @@ tabButtons.forEach((b) => {
   });
 });
 
+let allTasks: Task[] = [];
+
 async function loadTasks(): Promise<void> {
   taskListEl.replaceChildren();
   setStatus(tasksStatusEl, '', 'info');
@@ -89,18 +93,52 @@ async function loadTasks(): Promise<void> {
     setStatus(tasksStatusEl, `錯誤：${res.error}`, 'error');
     return;
   }
-  if (res.tasks.length === 0) {
+  allTasks = res.tasks;
+  if (allTasks.length === 0) {
     tasksEmptyEl.hidden = false;
     tasksCountEl.hidden = true;
+    taskSearchEl.hidden = true;
+    tasksNoMatchEl.hidden = true;
     return;
   }
   tasksEmptyEl.hidden = true;
+  taskSearchEl.hidden = false;
+  renderTaskList();
+}
+
+function renderTaskList(): void {
+  const query = taskSearchEl.value.trim().toLowerCase();
+  const filtered = query
+    ? allTasks.filter(
+        (t) =>
+          t.name.toLowerCase().includes(query) ||
+          (t.summary?.toLowerCase().includes(query) ?? false) ||
+          t.tabs.some((tab) => tab.title.toLowerCase().includes(query)),
+      )
+    : allTasks;
+
+  taskListEl.replaceChildren();
   tasksCountEl.hidden = false;
-  tasksCountEl.textContent = `${res.tasks.length} 個`;
-  for (const t of res.tasks) {
+  tasksCountEl.textContent = query
+    ? `${filtered.length}/${allTasks.length} 個`
+    : `${allTasks.length} 個`;
+  tasksNoMatchEl.hidden = filtered.length > 0;
+
+  for (const t of filtered) {
     taskListEl.appendChild(renderTask(t));
   }
+  requestAnimationFrame(() => {
+    taskListEl
+      .querySelectorAll<HTMLParagraphElement>('.task-summary-text.is-clamped')
+      .forEach((el) => {
+        if (el.scrollHeight > el.clientHeight + 1) {
+          el.classList.add('is-expandable');
+        }
+      });
+  });
 }
+
+taskSearchEl.addEventListener('input', renderTaskList);
 
 function renderTask(t: Task): HTMLLIElement {
   const li = document.createElement('li');
@@ -168,6 +206,12 @@ function renderSummary(t: Task): HTMLElement {
   view.className = 'task-summary-text';
   if (t.summary) {
     view.textContent = t.summary;
+    view.classList.add('is-clamped');
+    view.addEventListener('click', () => {
+      if (view.classList.contains('is-expandable')) {
+        view.classList.toggle('is-expanded');
+      }
+    });
   } else {
     view.classList.add('is-empty');
     view.textContent = '（尚無敘述，點此新增）';

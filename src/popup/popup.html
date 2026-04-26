@@ -54,7 +54,15 @@
           </div>
           <p class="view-desc">每次分組後的快照，可隨時恢復或刪除。</p>
         </header>
+        <input
+          id="task-search"
+          class="task-search"
+          type="search"
+          placeholder="搜尋任務名稱、敘述或分頁標題…"
+          hidden
+        />
         <ul id="task-list" class="task-list"></ul>
+        <p id="tasks-no-match" class="muted" hidden>沒有符合的任務</p>
         <p id="tasks-empty" class="empty-state" hidden>
           <span class="empty-state-title">尚無已儲存的任務</span>
           <span class="empty-state-hint">每次成功分組後，快照會自動出現在這裡。</span>
