@@ -17,6 +17,7 @@ const instructionEl = document.getElementById('instruction') as HTMLTextAreaElem
 const versionEl = document.getElementById('version') as HTMLSpanElement;
 const taskListEl = document.getElementById('task-list') as HTMLUListElement;
 const tasksEmptyEl = document.getElementById('tasks-empty') as HTMLParagraphElement;
+const tasksCountEl = document.getElementById('tasks-count') as HTMLSpanElement;
 const groupView = document.getElementById('view-group') as HTMLElement;
 const tasksView = document.getElementById('view-tasks') as HTMLElement;
 const tabButtons = document.querySelectorAll<HTMLButtonElement>('.tab');
@@ -90,9 +91,12 @@ async function loadTasks(): Promise<void> {
   }
   if (res.tasks.length === 0) {
     tasksEmptyEl.hidden = false;
+    tasksCountEl.hidden = true;
     return;
   }
   tasksEmptyEl.hidden = true;
+  tasksCountEl.hidden = false;
+  tasksCountEl.textContent = `${res.tasks.length} 個`;
   for (const t of res.tasks) {
     taskListEl.appendChild(renderTask(t));
   }

@@ -20,11 +20,21 @@
       </div>
 
       <div class="tabs" role="tablist">
-        <button class="tab is-active" data-view="group" type="button" role="tab">分組</button>
-        <button class="tab" data-view="tasks" type="button" role="tab">任務</button>
+        <button class="tab is-active" data-view="group" type="button" role="tab">
+          <span class="tab-icon" aria-hidden="true">⚡</span>
+          <span class="tab-label">分組</span>
+        </button>
+        <button class="tab" data-view="tasks" type="button" role="tab">
+          <span class="tab-icon" aria-hidden="true">📋</span>
+          <span class="tab-label">任務</span>
+        </button>
       </div>
 
-      <section id="view-group" class="view">
+      <section id="view-group" class="view view--action">
+        <header class="view-header view-header--action">
+          <h2 class="view-title">立即分組</h2>
+          <p class="view-desc">用 AI 把目前視窗的分頁整理成 Chrome 群組。</p>
+        </header>
         <textarea
           id="instruction"
           class="instruction"
@@ -32,13 +42,23 @@
           maxlength="512"
           placeholder="預設：根據分頁標題與網域，把相關分頁依主題分到同一組。"
         ></textarea>
-        <button id="group-btn" type="button">分組目前視窗的分頁</button>
+        <button id="group-btn" class="cta" type="button">分組目前視窗的分頁</button>
         <p id="status" class="status"></p>
       </section>
 
-      <section id="view-tasks" class="view" hidden>
+      <section id="view-tasks" class="view view--library" hidden>
+        <header class="view-header view-header--library">
+          <div class="view-header-row">
+            <h2 class="view-title">已儲存的任務</h2>
+            <span id="tasks-count" class="view-count" hidden></span>
+          </div>
+          <p class="view-desc">每次分組後的快照，可隨時恢復或刪除。</p>
+        </header>
         <ul id="task-list" class="task-list"></ul>
-        <p id="tasks-empty" class="muted" hidden>尚無已儲存的任務</p>
+        <p id="tasks-empty" class="empty-state" hidden>
+          <span class="empty-state-title">尚無已儲存的任務</span>
+          <span class="empty-state-hint">每次成功分組後，快照會自動出現在這裡。</span>
+        </p>
         <p id="tasks-status" class="status"></p>
       </section>
 
