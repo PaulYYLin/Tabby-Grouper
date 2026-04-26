@@ -12,12 +12,16 @@ export interface Task {
   color: chrome.tabGroups.ColorEnum;
   tabs: TaskTab[];
   instruction?: string;
+  summary?: string;
   createdAt: number;
   updatedAt: number;
   archivedAt?: number;
   status: TaskStatus;
   version: number;
 }
+
+export const MAX_AI_SUMMARY_LEN = 200;
+export const MAX_TASK_SUMMARY_LEN = 500;
 
 export interface TasksState {
   tasks: Record<string, Task>;

@@ -267,6 +267,67 @@ button.ghost:hover:not(:disabled) {
   color: var(--text-muted);
 }
 
+.task-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.task-summary-text {
+  flex: 1;
+  margin: 0;
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.task-summary-text.is-empty {
+  color: var(--text-muted);
+  font-style: italic;
+  cursor: pointer;
+}
+
+.task-summary-text.is-empty:hover {
+  color: var(--text);
+}
+
+.task-summary-edit {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.task-summary-input {
+  width: 100%;
+  resize: vertical;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  outline: none;
+}
+
+.task-summary-input:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px var(--brand-ring);
+}
+
+.task-summary-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.task-summary-actions button {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
 .task-actions {
   display: flex;
   gap: 6px;

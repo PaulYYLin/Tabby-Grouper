@@ -5,6 +5,7 @@ export type Message =
   | { type: 'LIST_TASKS' }
   | { type: 'RESUME_TASK'; taskId: string }
   | { type: 'DELETE_TASK'; taskId: string }
+  | { type: 'UPDATE_TASK_SUMMARY'; taskId: string; summary: string }
   | { type: 'GET_PENDING_RESUME' }
   | { type: 'DISMISS_PENDING'; taskId: string };
 

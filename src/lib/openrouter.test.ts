@@ -48,8 +48,8 @@ describe('classifyTabs', () => {
     );
     const out = await classifyTabs('k', 'm', TABS);
     expect(out).toEqual([
-      { groupName: 'GitHub', tabIds: [1, 2] },
-      { groupName: 'YouTube', tabIds: [3, 4] },
+      { groupName: 'GitHub', summary: '', tabIds: [1, 2] },
+      { groupName: 'YouTube', summary: '', tabIds: [3, 4] },
     ]);
   });
 
@@ -59,14 +59,14 @@ describe('classifyTabs', () => {
       mockCompletion(JSON.stringify([{ groupName: 'GitHub', tabIds: [1, 2] }])),
     );
     const out = await classifyTabs('k', 'm', TABS);
-    expect(out).toEqual([{ groupName: 'GitHub', tabIds: [1, 2] }]);
+    expect(out).toEqual([{ groupName: 'GitHub', summary: '', tabIds: [1, 2] }]);
   });
 
   it('剝除 ```json ... ``` markdown code fence', async () => {
     const content = '```json\n{"groups":[{"groupName":"GitHub","tabIds":[1,2]}]}\n```';
     vi.stubGlobal('fetch', mockCompletion(content));
     const out = await classifyTabs('k', 'm', TABS);
-    expect(out).toEqual([{ groupName: 'GitHub', tabIds: [1, 2] }]);
+    expect(out).toEqual([{ groupName: 'GitHub', summary: '', tabIds: [1, 2] }]);
   });
 
   it('去除不在候選清單的 tabId', async () => {
@@ -77,7 +77,7 @@ describe('classifyTabs', () => {
       ),
     );
     const out = await classifyTabs('k', 'm', TABS);
-    expect(out).toEqual([{ groupName: 'Bogus', tabIds: [1, 2] }]);
+    expect(out).toEqual([{ groupName: 'Bogus', summary: '', tabIds: [1, 2] }]);
   });
 
   it('同一 tabId 只會進第一個匹配的組', async () => {
@@ -94,8 +94,8 @@ describe('classifyTabs', () => {
     );
     const out = await classifyTabs('k', 'm', TABS);
     expect(out).toEqual([
-      { groupName: 'A', tabIds: [1, 2] },
-      { groupName: 'B', tabIds: [3, 4] },
+      { groupName: 'A', summary: '', tabIds: [1, 2] },
+      { groupName: 'B', summary: '', tabIds: [3, 4] },
     ]);
   });
 
@@ -112,7 +112,7 @@ describe('classifyTabs', () => {
       ),
     );
     const out = await classifyTabs('k', 'm', TABS);
-    expect(out).toEqual([{ groupName: 'Pair', tabIds: [2, 3] }]);
+    expect(out).toEqual([{ groupName: 'Pair', summary: '', tabIds: [2, 3] }]);
   });
 
   it('過濾空字串 groupName', async () => {
@@ -128,7 +128,49 @@ describe('classifyTabs', () => {
       ),
     );
     const out = await classifyTabs('k', 'm', TABS);
-    expect(out).toEqual([{ groupName: 'Real', tabIds: [3, 4] }]);
+    expect(out).toEqual([{ groupName: 'Real', summary: '', tabIds: [3, 4] }]);
+  });
+
+  it('保留 LLM 回傳的 summary', async () => {
+    vi.stubGlobal(
+      'fetch',
+      mockCompletion(
+        JSON.stringify({
+          groups: [
+            { groupName: 'GitHub', summary: '比較兩個 PR 的差異', tabIds: [1, 2] },
+          ],
+        }),
+      ),
+    );
+    const out = await classifyTabs('k', 'm', TABS);
+    expect(out).toEqual([
+      { groupName: 'GitHub', summary: '比較兩個 PR 的差異', tabIds: [1, 2] },
+    ]);
+  });
+
+  it('將 hostname 與 pathname 一起送進 prompt（不送 query string）', async () => {
+    const fetchMock = mockCompletion(JSON.stringify({ groups: [] }));
+    vi.stubGlobal('fetch', fetchMock);
+    await classifyTabs('k', 'm', TABS);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const userMsg: string = body.messages.find((m: { role: string }) => m.role === 'user').content;
+    expect(userMsg).toContain('github.com/a/b/pull/1');
+    expect(userMsg).toContain('youtube.com/watch');
+    expect(userMsg).not.toContain('?v=x');
+  });
+
+  it('summary 超過 200 字會被截斷', async () => {
+    const longSummary = '長'.repeat(300);
+    vi.stubGlobal(
+      'fetch',
+      mockCompletion(
+        JSON.stringify({
+          groups: [{ groupName: 'A', summary: longSummary, tabIds: [1, 2] }],
+        }),
+      ),
+    );
+    const out = await classifyTabs('k', 'm', TABS);
+    expect(out[0].summary).toHaveLength(200);
   });
 
   it('標題超過 80 字會被截斷後送進 prompt', async () => {

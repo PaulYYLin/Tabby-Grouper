@@ -13,9 +13,10 @@ import {
   addTask,
   deleteTask as deleteTaskRecord,
   getTaskIdForGroup,
+  mutateTask,
   readTasks,
 } from './lib/storage';
-import { newTaskId, type Task } from './lib/tasks';
+import { MAX_TASK_SUMMARY_LEN, newTaskId, type Task } from './lib/tasks';
 import type {
   GroupTabsResponse,
   ListTasksResponse,
@@ -53,6 +54,8 @@ async function handleMessage(msg: Message): Promise<AnyResponse> {
       return handleResumeTask(msg.taskId);
     case 'DELETE_TASK':
       return handleDeleteTask(msg.taskId);
+    case 'UPDATE_TASK_SUMMARY':
+      return handleUpdateTaskSummary(msg.taskId, msg.summary);
     case 'GET_PENDING_RESUME':
       return handleGetPendingResume();
     case 'DISMISS_PENDING':
@@ -104,6 +107,7 @@ async function handleGroupTabs(instruction?: string): Promise<GroupTabsResponse>
           .filter(isGroupableTab)
           .map((t) => ({ url: t.url, title: t.title ?? '', favIconUrl: t.favIconUrl })),
         instruction,
+        summary: g.summary || undefined,
         createdAt: now,
         updatedAt: now,
         status: 'live',
@@ -139,6 +143,19 @@ async function handleResumeTask(taskId: string): Promise<ResumeTaskResponse> {
 
 async function handleDeleteTask(taskId: string): Promise<SimpleResponse> {
   await deleteTaskRecord(taskId);
+  return { ok: true };
+}
+
+async function handleUpdateTaskSummary(
+  taskId: string,
+  summary: string,
+): Promise<SimpleResponse> {
+  const trimmed = summary.trim().slice(0, MAX_TASK_SUMMARY_LEN);
+  await mutateTask(taskId, (t) => ({
+    ...t,
+    summary: trimmed || undefined,
+    updatedAt: Date.now(),
+  }));
   return { ok: true };
 }
 

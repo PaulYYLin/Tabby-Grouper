@@ -123,6 +123,9 @@ function renderTask(t: Task): HTMLLIElement {
   }
   li.appendChild(head);
 
+  const summary = renderSummary(t);
+  li.appendChild(summary);
+
   const meta = document.createElement('p');
   meta.className = 'task-meta';
   meta.textContent = `${t.tabs.length} 個分頁 · ${formatRelative(t.updatedAt)}`;
@@ -146,6 +149,80 @@ function renderTask(t: Task): HTMLLIElement {
 
   li.appendChild(actions);
   return li;
+}
+
+function renderSummary(t: Task): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'task-summary';
+
+  const enterEdit = () => {
+    wrap.replaceChildren(...renderSummaryEditor(t, wrap));
+    wrap.querySelector('textarea')?.focus();
+  };
+
+  const view = document.createElement('p');
+  view.className = 'task-summary-text';
+  if (t.summary) {
+    view.textContent = t.summary;
+  } else {
+    view.classList.add('is-empty');
+    view.textContent = '（尚無敘述，點此新增）';
+    view.addEventListener('click', enterEdit);
+  }
+
+  const editBtn = document.createElement('button');
+  editBtn.type = 'button';
+  editBtn.className = 'task-summary-edit ghost';
+  editBtn.textContent = t.summary ? '編輯' : '新增';
+  editBtn.addEventListener('click', enterEdit);
+
+  wrap.append(view, editBtn);
+  return wrap;
+}
+
+function renderSummaryEditor(t: Task, wrap: HTMLElement): HTMLElement[] {
+  const ta = document.createElement('textarea');
+  ta.className = 'task-summary-input';
+  ta.rows = 3;
+  ta.maxLength = 500;
+  ta.value = t.summary ?? '';
+
+  const row = document.createElement('div');
+  row.className = 'task-summary-actions';
+
+  const save = document.createElement('button');
+  save.type = 'button';
+  save.textContent = '儲存';
+
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'ghost';
+  cancel.textContent = '取消';
+
+  save.addEventListener('click', async () => {
+    save.disabled = true;
+    cancel.disabled = true;
+    const next = ta.value.trim();
+    const res = await send<SimpleResponse>({
+      type: 'UPDATE_TASK_SUMMARY',
+      taskId: t.id,
+      summary: next,
+    });
+    if (res.ok) {
+      void loadTasks();
+    } else {
+      save.disabled = false;
+      cancel.disabled = false;
+      setStatus(tasksStatusEl, `錯誤：${res.error}`, 'error');
+    }
+  });
+
+  cancel.addEventListener('click', () => {
+    wrap.replaceWith(renderSummary(t));
+  });
+
+  row.append(save, cancel);
+  return [ta, row];
 }
 
 async function onResume(t: Task): Promise<void> {
