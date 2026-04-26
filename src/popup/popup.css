@@ -1,8 +1,10 @@
 :root {
-  --brand: #39b54a;
-  --brand-hover: #2fa33f;
-  --brand-disabled: #a9dcb0;
-  --brand-ring: rgba(57, 181, 74, 0.25);
+  --brand: #1051ab;
+  --brand-hover: #0d428c;
+  --brand-ring: rgba(16, 81, 171, 0.25);
+  --accent: #ff751f;
+  --accent-hover: #e6651a;
+  --accent-disabled: #ffc89e;
   --text: #1f2328;
   --text-muted: #656d76;
   --border: #d0d7de;
@@ -74,7 +76,7 @@ button {
   font-weight: 500;
   font-family: inherit;
   color: #fff;
-  background: var(--brand);
+  background: var(--accent);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -82,11 +84,11 @@ button {
 }
 
 button:hover:not(:disabled) {
-  background: var(--brand-hover);
+  background: var(--accent-hover);
 }
 
 button:disabled {
-  background: var(--brand-disabled);
+  background: var(--accent-disabled);
   cursor: progress;
 }
 
@@ -165,7 +167,7 @@ button:disabled {
   padding: 10px;
   border: 1px solid var(--brand);
   border-radius: 6px;
-  background: rgba(57, 181, 74, 0.08);
+  background: rgba(16, 81, 171, 0.08);
   display: flex;
   flex-direction: column;
   gap: 8px;

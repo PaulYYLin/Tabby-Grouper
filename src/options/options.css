@@ -1,7 +1,9 @@
 :root {
-  --brand: #39b54a;
-  --brand-hover: #2fa33f;
-  --brand-ring: rgba(57, 181, 74, 0.25);
+  --brand: #1051ab;
+  --brand-hover: #0d428c;
+  --brand-ring: rgba(16, 81, 171, 0.25);
+  --accent: #ff751f;
+  --accent-hover: #e6651a;
   --text: #1f2328;
   --text-muted: #656d76;
   --border: #d0d7de;
@@ -92,7 +94,7 @@ button {
   font-weight: 500;
   font-family: inherit;
   color: #fff;
-  background: var(--brand);
+  background: var(--accent);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -100,7 +102,7 @@ button {
 }
 
 button:hover {
-  background: var(--brand-hover);
+  background: var(--accent-hover);
 }
 
 .status {
