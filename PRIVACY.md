@@ -1,6 +1,6 @@
 # Tabby Grouper Privacy Policy
 
-_Last updated: 2026-04-20_
+_Last updated: 2026-04-26_
 
 Tabby Grouper（下稱「本擴充功能」）由 paul.yy.lin@gmail.com 開發與維護。我們重視你的隱私，以下說明本擴充功能會如何處理你的資料。
 
@@ -36,13 +36,17 @@ Tabby Grouper（下稱「本擴充功能」）由 paul.yy.lin@gmail.com 開發�
 | --- | --- |
 | `tabs` | 讀取目前視窗分頁的標題與網址，作為 AI 分類依據 |
 | `tabGroups` | 依 AI 分類結果建立與命名 Chrome 分頁群組 |
-| `storage` | 在本機／Chrome 同步儲存你的 OpenRouter API Key 與模型設定 |
+| `storage` | 在本機儲存任務快照（群組名稱、顏色、分頁標題與網址）；在 Chrome 同步儲存你的 OpenRouter API Key 與模型設定 |
 | `host_permissions: openrouter.ai` | 呼叫 OpenRouter API |
 
 ## 資料保留
 
-- 分頁標題與網址：**不保留**（僅於單次請求存活於記憶體中）。
-- API Key：保留於 `chrome.storage.sync`，直到你清空欄位或移除本擴充功能。
+- **AI 分組請求過程中的分頁標題與網址**：**不保留**（僅於單次 OpenRouter 請求存活於記憶體中，不會跨請求保留）。
+- **任務 (Task) 快照**：當你按下「分組目前視窗的分頁」並成功建立群組時，本擴充功能會把該群組的名稱、顏色、各分頁的標題、網址、favicon 連結，存入 `chrome.storage.local`（**僅本機，不同步、不上傳**），用於日後在「任務」分頁列表中顯示與「一鍵恢復」。
+  - 你可以在「任務」分頁手動刪除任一筆任務。
+  - 任務若被封存（例如群組關閉），預設保留 7 天後自動清除。
+  - 解除安裝本擴充功能時，所有任務資料將由 Chrome 一併清除。
+- **OpenRouter API Key**：保留於 `chrome.storage.sync`，直到你清空欄位或移除本擴充功能。
 
 ## 你的權利
 

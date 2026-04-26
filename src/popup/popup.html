@@ -10,15 +10,38 @@
     <main>
       <h1>Tabby Grouper</h1>
       <p class="subtitle">用 AI 把相關分頁整理到同一個群組</p>
-      <textarea
-        id="instruction"
-        class="instruction"
-        rows="3"
-        maxlength="512"
-        placeholder="預設：根據分頁標題與網域，把相關分頁依主題分到同一組。"
-      ></textarea>
-      <button id="group-btn" type="button">分組目前視窗的分頁</button>
-      <p id="status" class="status"></p>
+
+      <div id="resume-banner" class="banner" hidden>
+        <p id="resume-banner-text" class="banner-text"></p>
+        <div class="banner-actions">
+          <button id="resume-banner-btn" type="button">一鍵恢復</button>
+          <button id="resume-banner-dismiss" type="button" class="ghost">略過</button>
+        </div>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button class="tab is-active" data-view="group" type="button" role="tab">分組</button>
+        <button class="tab" data-view="tasks" type="button" role="tab">任務</button>
+      </div>
+
+      <section id="view-group" class="view">
+        <textarea
+          id="instruction"
+          class="instruction"
+          rows="3"
+          maxlength="512"
+          placeholder="預設：根據分頁標題與網域，把相關分頁依主題分到同一組。"
+        ></textarea>
+        <button id="group-btn" type="button">分組目前視窗的分頁</button>
+        <p id="status" class="status"></p>
+      </section>
+
+      <section id="view-tasks" class="view" hidden>
+        <ul id="task-list" class="task-list"></ul>
+        <p id="tasks-empty" class="muted" hidden>尚無已儲存的任務</p>
+        <p id="tasks-status" class="status"></p>
+      </section>
+
       <div class="footer">
         <a id="options-link" href="#" class="options-link">開啟設定</a>
         <span id="version" class="version"></span>
