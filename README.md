@@ -79,6 +79,10 @@ src/
 - **`max_tokens: 2048`**，避免模型輸出過長浪費 token
 - **Prompt injection**：分頁標題屬於外部不可信輸入，惡意網站理論上可操控 LLM 回傳內容。但輸出經 `isGroupResultShape` 驗證 + `validIds` 白名單過濾，最壞情況僅為分組名稱被操控，不會執行任意程式碼或洩漏資料（API Key 僅存在於 HTTP header，不在 prompt 中）
 
+## 變更紀錄
+
+見 [CHANGELOG.md](./CHANGELOG.md)。
+
 ## 隱私權
 
 見 [PRIVACY.md](./PRIVACY.md)。簡言之：
