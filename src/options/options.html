@@ -1,16 +1,45 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tabby Grouper 設定</title>
+    <title>Tabby Grouper</title>
     <link rel="stylesheet" href="./options.css" />
   </head>
   <body>
     <main>
-      <h1>Tabby Grouper 設定</h1>
+      <h1 data-i18n="optionsTitle"></h1>
+
+      <section class="lang-section">
+        <span class="lang-label" data-i18n="langSectionLabel"></span>
+        <div
+          id="lang-toggle"
+          class="lang-toggle"
+          role="radiogroup"
+          aria-label="Language"
+        >
+          <button
+            type="button"
+            class="lang-opt"
+            data-lang="zh"
+            role="radio"
+            aria-checked="false"
+            data-i18n="langZh"
+          ></button>
+          <button
+            type="button"
+            class="lang-opt"
+            data-lang="en"
+            role="radio"
+            aria-checked="false"
+            data-i18n="langEn"
+          ></button>
+        </div>
+        <p class="hint" data-i18n="langHint"></p>
+      </section>
+
       <form id="options-form">
-        <label for="api-key">OpenRouter API Key</label>
+        <label for="api-key" data-i18n="apiKeyLabel"></label>
         <input
           id="api-key"
           name="apiKey"
@@ -21,13 +50,13 @@
           required
         />
         <p class="hint">
-          取得 API Key：
+          <span data-i18n="apiKeyHintPrefix"></span>
           <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer"
             >openrouter.ai/keys</a
           >
         </p>
 
-        <label for="model">模型（選填）</label>
+        <label for="model" data-i18n="modelLabel"></label>
         <input
           id="model"
           name="model"
@@ -37,33 +66,30 @@
           placeholder="google/gemini-2.5-flash-lite"
         />
         <p class="hint">
-          留空使用預設模型（google/gemini-2.5-flash-lite）。可用模型列表：
+          <span data-i18n="modelHintBefore"></span>
           <a href="https://openrouter.ai/models" target="_blank" rel="noreferrer"
             >openrouter.ai/models</a
-          >（例：<code>openai/gpt-4o-mini</code>）
+          ><span data-i18n="modelHintAfter"></span><code>openai/gpt-4o-mini</code
+          ><span data-i18n="modelHintEnd"></span>
         </p>
 
-        <label for="add-policy">手動拖入分頁時</label>
+        <label for="add-policy" data-i18n="addPolicyLabel"></label>
         <select id="add-policy" name="addDraggedTabPolicy">
-          <option value="ask">每次詢問</option>
-          <option value="always">自動加入任務</option>
-          <option value="never">不加入任務</option>
+          <option value="ask" data-i18n="addPolicyAsk"></option>
+          <option value="always" data-i18n="addPolicyAlways"></option>
+          <option value="never" data-i18n="addPolicyNever"></option>
         </select>
-        <p class="hint">
-          當你把分頁手動拖進已記錄的群組時，要不要把它寫進該任務的分頁清單。預設「每次詢問」會跳系統通知。
-        </p>
+        <p class="hint" data-i18n="addPolicyHint"></p>
 
-        <label for="remove-policy">手動拖出分頁時</label>
+        <label for="remove-policy" data-i18n="removePolicyLabel"></label>
         <select id="remove-policy" name="removeDraggedTabPolicy">
-          <option value="ask">每次詢問</option>
-          <option value="always">自動從任務移除</option>
-          <option value="never">保留在任務</option>
+          <option value="ask" data-i18n="removePolicyAsk"></option>
+          <option value="always" data-i18n="removePolicyAlways"></option>
+          <option value="never" data-i18n="removePolicyNever"></option>
         </select>
-        <p class="hint">
-          當你把已記錄的分頁拖出群組時，要不要從該任務的分頁清單移除。
-        </p>
+        <p class="hint" data-i18n="removePolicyHint"></p>
 
-        <button type="submit">儲存</button>
+        <button type="submit" data-i18n="saveBtn"></button>
         <p id="save-status" class="status"></p>
       </form>
     </main>

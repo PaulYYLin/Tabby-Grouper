@@ -1,4 +1,5 @@
 import { isGroupableTab, pickColor } from './lib/grouping';
+import { getLang, onLangChange, tFor, type Lang } from './lib/i18n';
 import {
   archiveGroup,
   bindNewGroup,
@@ -58,6 +59,16 @@ type AnyResponse =
   | PendingResumeResponse
   | ListPendingAdditionsResponse;
 
+let cachedLang: Lang | null = null;
+async function currentLang(): Promise<Lang> {
+  if (cachedLang) return cachedLang;
+  cachedLang = await getLang();
+  return cachedLang;
+}
+onLangChange((l) => {
+  cachedLang = l;
+});
+
 chrome.runtime.onMessage.addListener(
   (msg: Message, _sender, sendResponse: (r: AnyResponse) => void) => {
     handleMessage(msg)
@@ -93,27 +104,29 @@ async function handleMessage(msg: Message): Promise<AnyResponse> {
 }
 
 async function handleGroupTabs(instruction?: string): Promise<GroupTabsResponse> {
+  const lang = await currentLang();
+  const t = tFor(lang);
   const { apiKey, model } = (await chrome.storage.sync.get(['apiKey', 'model'])) as {
     apiKey?: string;
     model?: string;
   };
   if (!apiKey) {
-    return { ok: false, error: '尚未設定 API Key，請先打開設定頁' };
+    return { ok: false, error: t('errNoApiKey') };
   }
 
   const tabs = await chrome.tabs.query({ currentWindow: true });
   const candidates: TabInfo[] = tabs
     .filter(isGroupableTab)
-    .map((t) => ({ id: t.id, title: t.title ?? '', url: t.url }));
+    .map((tab) => ({ id: tab.id, title: tab.title ?? '', url: tab.url }));
 
   if (candidates.length < 2) {
-    return { ok: false, error: '可分組的分頁少於 2 個' };
+    return { ok: false, error: t('errTooFewTabs') };
   }
 
-  const groups = await classifyTabs(apiKey, model || DEFAULT_MODEL, candidates, instruction);
+  const groups = await classifyTabs(apiKey, model || DEFAULT_MODEL, candidates, instruction, lang);
 
   if (groups.length === 0) {
-    return { ok: false, error: 'AI 未找到可歸類的主題群組' };
+    return { ok: false, error: t('errNoGroupsFound') };
   }
 
   const tabById = new Map<number, chrome.tabs.Tab>();
@@ -361,17 +374,16 @@ async function showDecisionNotification(
 ): Promise<void> {
   const iconUrl = chrome.runtime.getURL('icons/128.png');
   const isAdd = kind === 'add';
+  const t = tFor(await currentLang());
   await chrome.notifications.create(NOTIFICATION_PREFIX + pendingId, {
     type: 'basic',
     iconUrl,
-    title: isAdd ? `加入「${taskName}」？` : `從「${taskName}」移除？`,
+    title: isAdd ? t('notifAddTitle')(taskName) : t('notifRemoveTitle')(taskName),
     message: tabTitle,
-    contextMessage: isAdd
-      ? '剛剛拖入的分頁是否要記錄到此任務？'
-      : '剛剛拖出的分頁是否要從此任務移除？',
+    contextMessage: isAdd ? t('notifAddContext') : t('notifRemoveContext'),
     buttons: isAdd
-      ? [{ title: '加入' }, { title: '略過' }]
-      : [{ title: '移除' }, { title: '保留' }],
+      ? [{ title: t('notifAddYes') }, { title: t('notifAddNo') }]
+      : [{ title: t('notifRemoveYes') }, { title: t('notifRemoveNo') }],
     requireInteraction: true,
     priority: 1,
   });

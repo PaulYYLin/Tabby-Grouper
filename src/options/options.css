@@ -127,3 +127,54 @@ button:hover {
   min-height: 16px;
   color: var(--brand);
 }
+
+.lang-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px dashed var(--border);
+}
+
+.lang-label {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.lang-toggle {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 2px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.lang-opt {
+  margin: 0;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.lang-opt:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text);
+}
+
+.lang-opt.is-active {
+  color: #fff;
+  background: var(--brand);
+}
+
+.lang-opt.is-active:hover {
+  background: var(--brand-hover);
+}

@@ -1,4 +1,5 @@
 import '../fonts.css';
+import { applyDomI18n, getLang, htmlLangFor, onLangChange, tFor, type Lang } from '../lib/i18n';
 import type {
   GroupTabsResponse,
   ListPendingAdditionsResponse,
@@ -36,6 +37,12 @@ const pendingDontAskEl = document.getElementById('pending-dont-ask') as HTMLInpu
 
 versionEl.textContent = `v${chrome.runtime.getManifest().version}`;
 
+let lang: Lang = await getLang();
+let t = tFor(lang);
+document.documentElement.lang = htmlLangFor(lang);
+
+applyDomI18n(t);
+
 const INSTRUCTION_KEY = 'lastInstruction';
 const { [INSTRUCTION_KEY]: lastInstruction } = await chrome.storage.local.get(INSTRUCTION_KEY);
 if (typeof lastInstruction === 'string') instructionEl.value = lastInstruction;
@@ -49,7 +56,7 @@ function send<T>(msg: Message): Promise<T> {
 
 btn.addEventListener('click', async () => {
   btn.disabled = true;
-  setStatus(statusEl, '分析中，請稍候…', 'info');
+  setStatus(statusEl, t('statusAnalyzing'), 'info');
   const instruction = instructionEl.value.trim();
   await chrome.storage.local.set({ [INSTRUCTION_KEY]: instruction });
   try {
@@ -58,17 +65,13 @@ btn.addEventListener('click', async () => {
       instruction: instruction || undefined,
     });
     if (res.ok) {
-      setStatus(
-        statusEl,
-        `已建立 ${res.groupCount} 個群組，整理了 ${res.groupedTabCount} 個分頁`,
-        'success',
-      );
+      setStatus(statusEl, t('statusGroupSuccess')(res.groupCount, res.groupedTabCount), 'success');
       void loadTasks();
     } else {
-      setStatus(statusEl, `錯誤：${res.error}`, 'error');
+      setStatus(statusEl, t('statusError')(res.error), 'error');
     }
   } catch (err) {
-    setStatus(statusEl, `錯誤：${err instanceof Error ? err.message : String(err)}`, 'error');
+    setStatus(statusEl, t('statusError')(err instanceof Error ? err.message : String(err)), 'error');
   } finally {
     btn.disabled = false;
   }
@@ -96,7 +99,7 @@ async function loadTasks(): Promise<void> {
   setStatus(tasksStatusEl, '', 'info');
   const res = await send<ListTasksResponse>({ type: 'LIST_TASKS' });
   if (!res.ok) {
-    setStatus(tasksStatusEl, `錯誤：${res.error}`, 'error');
+    setStatus(tasksStatusEl, t('statusError')(res.error), 'error');
     return;
   }
   allTasks = res.tasks;
@@ -116,31 +119,31 @@ function renderTaskList(): void {
   const query = taskSearchEl.value.trim().toLowerCase();
   const filtered = query
     ? allTasks.filter(
-        (t) =>
-          t.name.toLowerCase().includes(query) ||
-          (t.summary?.toLowerCase().includes(query) ?? false) ||
-          t.tabs.some((tab) => tab.title.toLowerCase().includes(query)),
+        (task) =>
+          task.name.toLowerCase().includes(query) ||
+          (task.summary?.toLowerCase().includes(query) ?? false) ||
+          task.tabs.some((tab) => tab.title.toLowerCase().includes(query)),
       )
     : allTasks;
 
   taskListEl.replaceChildren();
   tasksCountEl.hidden = false;
   tasksCountEl.textContent = query
-    ? `${filtered.length}/${allTasks.length} 個`
-    : `${allTasks.length} 個`;
+    ? t('countFiltered')(filtered.length, allTasks.length)
+    : t('countAll')(allTasks.length);
   tasksNoMatchEl.hidden = filtered.length > 0;
 
-  for (const t of filtered) {
-    taskListEl.appendChild(renderTask(t));
+  for (const task of filtered) {
+    taskListEl.appendChild(renderTask(task));
   }
 }
 
 taskSearchEl.addEventListener('input', renderTaskList);
 
-function renderTask(t: Task): HTMLLIElement {
+function renderTask(task: Task): HTMLLIElement {
   const li = document.createElement('li');
-  li.className = `task-row task-row--${t.color}`;
-  li.dataset.taskId = t.id;
+  li.className = `task-row task-row--${task.color}`;
+  li.dataset.taskId = task.id;
 
   const head = document.createElement('button');
   head.type = 'button';
@@ -151,13 +154,13 @@ function renderTask(t: Task): HTMLLIElement {
   openBtn.setAttribute('role', 'button');
   openBtn.tabIndex = 0;
   openBtn.className = 'icon-btn task-open';
-  const openLabel = t.status === 'archived' ? '恢復並開啟分頁' : '開啟群組分頁';
+  const openLabel = task.status === 'archived' ? t('taskOpenArchived') : t('taskOpenLive');
   openBtn.setAttribute('aria-label', openLabel);
   openBtn.title = openLabel;
   openBtn.innerHTML = OPEN_ICON_SVG;
   const handleOpen = (e: Event) => {
     e.stopPropagation();
-    void onResume(t);
+    void onResume(task);
   };
   openBtn.addEventListener('click', handleOpen);
   openBtn.addEventListener('keydown', (e) => {
@@ -169,18 +172,18 @@ function renderTask(t: Task): HTMLLIElement {
   head.appendChild(openBtn);
 
   const dot = document.createElement('span');
-  dot.className = `task-dot task-dot--${t.color}`;
+  dot.className = `task-dot task-dot--${task.color}`;
   head.appendChild(dot);
 
   const name = document.createElement('span');
   name.className = 'task-name';
-  name.textContent = t.name;
+  name.textContent = task.name;
   head.appendChild(name);
 
-  if (t.status === 'archived') {
+  if (task.status === 'archived') {
     const tag = document.createElement('span');
     tag.className = 'task-tag';
-    tag.textContent = '已封存';
+    tag.textContent = t('taskArchivedTag');
     head.appendChild(tag);
   }
 
@@ -196,11 +199,11 @@ function renderTask(t: Task): HTMLLIElement {
   body.className = 'task-body';
   body.hidden = true;
 
-  body.appendChild(renderSummary(t));
+  body.appendChild(renderSummary(task));
 
   const meta = document.createElement('p');
   meta.className = 'task-meta';
-  meta.textContent = `${t.tabs.length} 個分頁 · ${formatRelative(t.updatedAt)}`;
+  meta.textContent = t('taskMeta')(task.tabs.length, formatRelative(task.updatedAt));
   body.appendChild(meta);
 
   const actions = document.createElement('div');
@@ -208,26 +211,26 @@ function renderTask(t: Task): HTMLLIElement {
 
   const resumeBtn = document.createElement('button');
   resumeBtn.type = 'button';
-  resumeBtn.textContent = t.status === 'archived' ? '恢復' : '補齊缺少分頁';
-  resumeBtn.addEventListener('click', () => void onResume(t));
+  resumeBtn.textContent = task.status === 'archived' ? t('taskResumeArchived') : t('taskResume');
+  resumeBtn.addEventListener('click', () => void onResume(task));
   actions.appendChild(resumeBtn);
 
   const copyBtn = document.createElement('button');
   copyBtn.type = 'button';
   copyBtn.className = 'icon-btn';
-  copyBtn.setAttribute('aria-label', '複製任務內容');
-  copyBtn.title = '複製任務（敘述 + 分頁連結）';
+  copyBtn.setAttribute('aria-label', t('taskCopyLabel'));
+  copyBtn.title = t('taskCopyTitle');
   copyBtn.innerHTML = COPY_ICON_SVG;
-  copyBtn.addEventListener('click', () => void onCopy(t, copyBtn));
+  copyBtn.addEventListener('click', () => void onCopy(task, copyBtn));
   actions.appendChild(copyBtn);
 
   const delBtn = document.createElement('button');
   delBtn.type = 'button';
   delBtn.className = 'icon-btn icon-btn--danger';
-  delBtn.setAttribute('aria-label', '刪除任務');
-  delBtn.title = '刪除任務';
+  delBtn.setAttribute('aria-label', t('taskDeleteLabel'));
+  delBtn.title = t('taskDeleteTitle');
   delBtn.innerHTML = TRASH_ICON_SVG;
-  delBtn.addEventListener('click', () => void onDelete(t));
+  delBtn.addEventListener('click', () => void onDelete(task));
   actions.appendChild(delBtn);
 
   body.appendChild(actions);
@@ -242,43 +245,44 @@ function renderTask(t: Task): HTMLLIElement {
   return li;
 }
 
-function renderSummary(t: Task): HTMLElement {
+function renderSummary(task: Task): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'task-summary';
 
   const enterEdit = () => {
-    wrap.replaceChildren(...renderSummaryEditor(t, wrap));
+    wrap.replaceChildren(...renderSummaryEditor(task, wrap));
     wrap.querySelector('textarea')?.focus();
   };
 
   const view = document.createElement('p');
   view.className = 'task-summary-text';
-  if (t.summary) {
-    view.textContent = t.summary;
+  if (task.summary) {
+    view.textContent = task.summary;
   } else {
     view.classList.add('is-empty');
-    view.textContent = '（尚無敘述，點此新增）';
+    view.textContent = t('summaryEmpty');
     view.addEventListener('click', enterEdit);
   }
 
   const editBtn = document.createElement('button');
   editBtn.type = 'button';
   editBtn.className = 'task-summary-edit icon-btn';
-  editBtn.setAttribute('aria-label', t.summary ? '編輯敘述' : '新增敘述');
-  editBtn.title = t.summary ? '編輯敘述' : '新增敘述';
-  editBtn.innerHTML = t.summary ? EDIT_ICON_SVG : PLUS_ICON_SVG;
+  const label = task.summary ? t('summaryEditLabel') : t('summaryAddLabel');
+  editBtn.setAttribute('aria-label', label);
+  editBtn.title = label;
+  editBtn.innerHTML = task.summary ? EDIT_ICON_SVG : PLUS_ICON_SVG;
   editBtn.addEventListener('click', enterEdit);
 
   wrap.append(view, editBtn);
   return wrap;
 }
 
-function renderSummaryEditor(t: Task, wrap: HTMLElement): HTMLElement[] {
+function renderSummaryEditor(task: Task, wrap: HTMLElement): HTMLElement[] {
   const ta = document.createElement('textarea');
   ta.className = 'task-summary-input';
   ta.rows = 3;
   ta.maxLength = 500;
-  ta.value = t.summary ?? '';
+  ta.value = task.summary ?? '';
 
   const row = document.createElement('div');
   row.className = 'task-summary-actions';
@@ -286,15 +290,15 @@ function renderSummaryEditor(t: Task, wrap: HTMLElement): HTMLElement[] {
   const save = document.createElement('button');
   save.type = 'button';
   save.className = 'icon-btn icon-btn--primary';
-  save.setAttribute('aria-label', '儲存敘述');
-  save.title = '儲存';
+  save.setAttribute('aria-label', t('summarySaveLabel'));
+  save.title = t('summarySaveTitle');
   save.innerHTML = CHECK_ICON_SVG;
 
   const cancel = document.createElement('button');
   cancel.type = 'button';
   cancel.className = 'icon-btn';
-  cancel.setAttribute('aria-label', '取消編輯');
-  cancel.title = '取消';
+  cancel.setAttribute('aria-label', t('summaryCancelLabel'));
+  cancel.title = t('summaryCancelTitle');
   cancel.innerHTML = CLOSE_ICON_SVG;
 
   save.addEventListener('click', async () => {
@@ -303,7 +307,7 @@ function renderSummaryEditor(t: Task, wrap: HTMLElement): HTMLElement[] {
     const next = ta.value.trim();
     const res = await send<SimpleResponse>({
       type: 'UPDATE_TASK_SUMMARY',
-      taskId: t.id,
+      taskId: task.id,
       summary: next,
     });
     if (res.ok) {
@@ -311,40 +315,40 @@ function renderSummaryEditor(t: Task, wrap: HTMLElement): HTMLElement[] {
     } else {
       save.disabled = false;
       cancel.disabled = false;
-      setStatus(tasksStatusEl, `錯誤：${res.error}`, 'error');
+      setStatus(tasksStatusEl, t('statusError')(res.error), 'error');
     }
   });
 
   cancel.addEventListener('click', () => {
-    wrap.replaceWith(renderSummary(t));
+    wrap.replaceWith(renderSummary(task));
   });
 
   row.append(save, cancel);
   return [ta, row];
 }
 
-async function onResume(t: Task): Promise<void> {
-  setStatus(tasksStatusEl, `恢復中：${t.name}…`, 'info');
-  const res = await send<ResumeTaskResponse>({ type: 'RESUME_TASK', taskId: t.id });
+async function onResume(task: Task): Promise<void> {
+  setStatus(tasksStatusEl, t('statusResuming')(task.name), 'info');
+  const res = await send<ResumeTaskResponse>({ type: 'RESUME_TASK', taskId: task.id });
   if (res.ok) {
     setStatus(
       tasksStatusEl,
-      `已恢復「${t.name}」：新開 ${res.openedCount} 個、沿用 ${res.reusedCount} 個分頁`,
+      t('statusResumed')(task.name, res.openedCount, res.reusedCount),
       'success',
     );
-    hideBannerFor(t.id);
+    hideBannerFor(task.id);
     void loadTasks();
   } else {
-    setStatus(tasksStatusEl, `錯誤：${res.error}`, 'error');
+    setStatus(tasksStatusEl, t('statusError')(res.error), 'error');
   }
 }
 
-function formatTaskForCopy(t: Task): string {
-  const lines: string[] = [`# ${t.name}`];
-  if (t.summary) lines.push('', t.summary);
-  if (t.tabs.length > 0) {
+function formatTaskForCopy(task: Task): string {
+  const lines: string[] = [`# ${task.name}`];
+  if (task.summary) lines.push('', task.summary);
+  if (task.tabs.length > 0) {
     lines.push('');
-    for (const tab of t.tabs) {
+    for (const tab of task.tabs) {
       lines.push(`- [${tab.title}](${tab.url})`);
     }
   }
@@ -368,17 +372,17 @@ const CHEVRON_ICON_SVG =
 const OPEN_ICON_SVG =
   '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h4v4M13 3l-6 6M12.5 9.5V12a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 12V5A1.5 1.5 0 0 1 4 3.5h2.5"/></svg>';
 
-async function onCopy(t: Task, btn: HTMLElement): Promise<void> {
-  const text = formatTaskForCopy(t);
+async function onCopy(task: Task, btn: HTMLElement): Promise<void> {
+  const text = formatTaskForCopy(task);
   try {
     await navigator.clipboard.writeText(text);
     btn.innerHTML = CHECK_ICON_SVG;
     btn.classList.add('is-copied');
-    setStatus(tasksStatusEl, `已複製「${t.name}」（${t.tabs.length} 個分頁）`, 'success');
+    setStatus(tasksStatusEl, t('statusCopied')(task.name, task.tabs.length), 'success');
   } catch (err) {
     setStatus(
       tasksStatusEl,
-      `複製失敗：${err instanceof Error ? err.message : String(err)}`,
+      t('statusCopyFailed')(err instanceof Error ? err.message : String(err)),
       'error',
     );
     return;
@@ -389,14 +393,14 @@ async function onCopy(t: Task, btn: HTMLElement): Promise<void> {
   }, 1500);
 }
 
-async function onDelete(t: Task): Promise<void> {
-  if (!confirm(`確定刪除任務「${t.name}」？`)) return;
-  const res = await send<SimpleResponse>({ type: 'DELETE_TASK', taskId: t.id });
+async function onDelete(task: Task): Promise<void> {
+  if (!confirm(t('confirmDelete')(task.name))) return;
+  const res = await send<SimpleResponse>({ type: 'DELETE_TASK', taskId: task.id });
   if (res.ok) {
-    hideBannerFor(t.id);
+    hideBannerFor(task.id);
     void loadTasks();
   } else {
-    setStatus(tasksStatusEl, `錯誤：${res.error}`, 'error');
+    setStatus(tasksStatusEl, t('statusError')(res.error), 'error');
   }
 }
 
@@ -410,7 +414,7 @@ async function loadBanner(): Promise<void> {
   }
   const task = res.tasks[0];
   bannerTaskId = task.id;
-  bannerText.textContent = `恢復「${task.name}」研究？（${task.tabs.length} 個分頁）`;
+  bannerText.textContent = t('bannerText')(task.name, task.tabs.length);
   banner.hidden = false;
 }
 
@@ -419,12 +423,12 @@ bannerBtn.addEventListener('click', async () => {
   const id = bannerTaskId;
   const list = await send<ListTasksResponse>({ type: 'LIST_TASKS' });
   if (!list.ok) {
-    setStatus(statusEl, `錯誤：${list.error}`, 'error');
+    setStatus(statusEl, t('statusError')(list.error), 'error');
     return;
   }
-  const t = list.tasks.find((x) => x.id === id);
-  if (!t) return;
-  await onResume(t);
+  const task = list.tasks.find((x) => x.id === id);
+  if (!task) return;
+  await onResume(task);
 });
 
 bannerDismiss.addEventListener('click', async () => {
@@ -450,12 +454,12 @@ function setStatus(el: HTMLElement, text: string, kind: StatusKind): void {
 function formatRelative(ts: number): string {
   const diff = Date.now() - ts;
   const min = Math.round(diff / 60_000);
-  if (min < 1) return '剛剛';
-  if (min < 60) return `${min} 分鐘前`;
+  if (min < 1) return t('relJustNow');
+  if (min < 60) return t('relMinutes')(min);
   const hr = Math.round(min / 60);
-  if (hr < 24) return `${hr} 小時前`;
+  if (hr < 24) return t('relHours')(hr);
   const day = Math.round(hr / 24);
-  return `${day} 天前`;
+  return t('relDays')(day);
 }
 
 async function loadPendingAdditions(): Promise<void> {
@@ -467,7 +471,7 @@ async function loadPendingAdditions(): Promise<void> {
     return;
   }
   pendingSection.hidden = false;
-  pendingCountEl.textContent = `${res.pending.length} 個`;
+  pendingCountEl.textContent = t('countAll')(res.pending.length);
   pendingListEl.replaceChildren(...res.pending.map(renderPendingItem));
 }
 
@@ -484,7 +488,7 @@ function renderPendingItem(p: PendingAdditionView): HTMLLIElement {
   titleEl.className = 'pending-tab-title';
   const kindBadge = document.createElement('span');
   kindBadge.className = `pending-kind pending-kind--${p.kind}`;
-  kindBadge.textContent = isAdd ? '加入' : '移除';
+  kindBadge.textContent = isAdd ? t('pendingKindAdd') : t('pendingKindRemove');
   titleEl.append(kindBadge, ' ', p.title || p.url);
   titleEl.title = p.title || p.url;
   info.appendChild(titleEl);
@@ -506,14 +510,14 @@ function renderPendingItem(p: PendingAdditionView): HTMLLIElement {
 
   const yesBtn = document.createElement('button');
   yesBtn.type = 'button';
-  yesBtn.textContent = isAdd ? '加入' : '移除';
+  yesBtn.textContent = isAdd ? t('pendingActionAddYes') : t('pendingActionRemoveYes');
   yesBtn.addEventListener('click', () => void onResolvePending(p.kind, p.id, true));
   actions.appendChild(yesBtn);
 
   const noBtn = document.createElement('button');
   noBtn.type = 'button';
   noBtn.className = 'ghost';
-  noBtn.textContent = isAdd ? '略過' : '保留';
+  noBtn.textContent = isAdd ? t('pendingActionAddNo') : t('pendingActionRemoveNo');
   noBtn.addEventListener('click', () => void onResolvePending(p.kind, p.id, false));
   actions.appendChild(noBtn);
 
@@ -521,12 +525,10 @@ function renderPendingItem(p: PendingAdditionView): HTMLLIElement {
   return li;
 }
 
-const REMEMBER_MESSAGES: Record<`${PendingKind}:${'yes' | 'no'}`, string> = {
-  'add:yes': '已記住：之後拖入分頁會自動加入任務',
-  'add:no': '已記住：之後拖入分頁不會加入任務',
-  'remove:yes': '已記住：之後拖出分頁會自動從任務移除',
-  'remove:no': '已記住：之後拖出分頁會保留在任務',
-};
+function rememberMessage(kind: PendingKind, confirm: boolean): string {
+  if (kind === 'add') return confirm ? t('pendingRememberAddYes') : t('pendingRememberAddNo');
+  return confirm ? t('pendingRememberRemoveYes') : t('pendingRememberRemoveNo');
+}
 
 async function onResolvePending(
   kind: PendingKind,
@@ -541,14 +543,22 @@ async function onResolvePending(
     dontAskAgain,
   });
   if (!res.ok) {
-    setStatus(statusEl, `錯誤：${res.error}`, 'error');
+    setStatus(statusEl, t('statusError')(res.error), 'error');
     return;
   }
   pendingDontAskEl.checked = false;
   if (dontAskAgain) {
-    setStatus(statusEl, REMEMBER_MESSAGES[`${kind}:${confirm ? 'yes' : 'no'}`], 'success');
+    setStatus(statusEl, rememberMessage(kind, confirm), 'success');
   }
 }
+
+onLangChange((next) => {
+  lang = next;
+  t = tFor(lang);
+  document.documentElement.lang = htmlLangFor(lang);
+  applyDomI18n(t);
+  void Promise.all([loadTasks(), loadBanner(), loadPendingAdditions()]);
+});
 
 void loadBanner();
 void loadPendingAdditions();

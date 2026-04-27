@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,82 +8,87 @@
   </head>
   <body>
     <main>
-      <h1>Tabby Grouper</h1>
-      <p class="subtitle">用 AI 把相關分頁整理到同一個群組</p>
+      <h1 data-i18n="appName"></h1>
+      <p class="subtitle" data-i18n="subtitle"></p>
 
       <div id="resume-banner" class="banner" hidden>
         <p id="resume-banner-text" class="banner-text"></p>
         <div class="banner-actions">
-          <button id="resume-banner-btn" type="button">一鍵恢復</button>
-          <button id="resume-banner-dismiss" type="button" class="ghost">略過</button>
+          <button id="resume-banner-btn" type="button" data-i18n="bannerCta"></button>
+          <button
+            id="resume-banner-dismiss"
+            type="button"
+            class="ghost"
+            data-i18n="bannerDismiss"
+          ></button>
         </div>
       </div>
 
       <section id="pending-additions" class="pending" hidden>
         <header class="pending-head">
-          <h3 class="pending-title">分頁變動待確認</h3>
+          <h3 class="pending-title" data-i18n="pendingTitle"></h3>
           <span id="pending-count" class="pending-count"></span>
         </header>
         <ul id="pending-list" class="pending-list"></ul>
         <label class="pending-remember">
           <input id="pending-dont-ask" type="checkbox" />
-          <span>之後都不要再詢問（套用到下次點選的選擇）</span>
+          <span data-i18n="pendingDontAsk"></span>
         </label>
       </section>
 
       <div class="tabs" role="tablist">
         <button class="tab is-active" data-view="group" type="button" role="tab">
           <span class="tab-icon" aria-hidden="true">⚡</span>
-          <span class="tab-label">分組</span>
+          <span class="tab-label" data-i18n="tabGroup"></span>
         </button>
         <button class="tab" data-view="tasks" type="button" role="tab">
           <span class="tab-icon" aria-hidden="true">📋</span>
-          <span class="tab-label">任務</span>
+          <span class="tab-label" data-i18n="tabTasks"></span>
         </button>
       </div>
 
       <section id="view-group" class="view view--action">
         <header class="view-header view-header--action">
-          <h2 class="view-title">立即分組</h2>
-          <p class="view-desc">用 AI 把目前視窗的分頁整理成 Chrome 群組。</p>
+          <h2 class="view-title" data-i18n="viewGroupTitle"></h2>
+          <p class="view-desc" data-i18n="viewGroupDesc"></p>
         </header>
         <textarea
           id="instruction"
           class="instruction"
           rows="3"
           maxlength="512"
-          placeholder="預設：根據分頁標題與網域，把相關分頁依主題分到同一組。"
+          data-i18n-placeholder="instructionPlaceholder"
         ></textarea>
-        <button id="group-btn" class="cta" type="button">分組目前視窗的分頁</button>
+        <button id="group-btn" class="cta" type="button" data-i18n="ctaGroup"></button>
         <p id="status" class="status"></p>
       </section>
 
       <section id="view-tasks" class="view view--library" hidden>
         <header class="view-header view-header--library">
           <div class="view-header-row">
-            <h2 class="view-title">已儲存的任務</h2>
+            <h2 class="view-title" data-i18n="viewTasksTitle"></h2>
             <span id="tasks-count" class="view-count" hidden></span>
           </div>
-          <p class="view-desc">每次分組後的快照，可隨時恢復或刪除。</p>
+          <p class="view-desc" data-i18n="viewTasksDesc"></p>
         </header>
         <input
           id="task-search"
           class="task-search"
           type="search"
-          placeholder="搜尋任務名稱、敘述或分頁標題…"
+          data-i18n-placeholder="taskSearchPlaceholder"
           hidden
         />
         <ul id="task-list" class="task-list"></ul>
-        <p id="tasks-no-match" class="muted" hidden>沒有符合的任務</p>
+        <p id="tasks-no-match" class="muted" data-i18n="tasksNoMatch" hidden></p>
         <p id="tasks-empty" class="empty-state" hidden>
-          <span class="empty-state-title">尚無已儲存的任務</span>
-          <span class="empty-state-hint">每次成功分組後，快照會自動出現在這裡。</span>
+          <span class="empty-state-title" data-i18n="tasksEmptyTitle"></span>
+          <span class="empty-state-hint" data-i18n="tasksEmptyHint"></span>
         </p>
         <p id="tasks-status" class="status"></p>
       </section>
 
       <div class="footer">
-        <a id="options-link" href="#" class="options-link">開啟設定</a>
+        <a id="options-link" href="#" class="options-link" data-i18n="optionsLink"></a>
         <span id="version" class="version"></span>
       </div>
     </main>
