@@ -1,13 +1,15 @@
 import '../fonts.css';
 import type {
   GroupTabsResponse,
+  ListPendingAdditionsResponse,
   ListTasksResponse,
   Message,
+  PendingAdditionView,
   PendingResumeResponse,
   ResumeTaskResponse,
   SimpleResponse,
 } from '../lib/messages';
-import type { Task } from '../lib/tasks';
+import { PENDING_ADDITIONS_KEY, type PendingKind, type Task } from '../lib/tasks';
 
 const btn = document.getElementById('group-btn') as HTMLButtonElement;
 const statusEl = document.getElementById('status') as HTMLParagraphElement;
@@ -27,6 +29,10 @@ const banner = document.getElementById('resume-banner') as HTMLElement;
 const bannerText = document.getElementById('resume-banner-text') as HTMLParagraphElement;
 const bannerBtn = document.getElementById('resume-banner-btn') as HTMLButtonElement;
 const bannerDismiss = document.getElementById('resume-banner-dismiss') as HTMLButtonElement;
+const pendingSection = document.getElementById('pending-additions') as HTMLElement;
+const pendingListEl = document.getElementById('pending-list') as HTMLUListElement;
+const pendingCountEl = document.getElementById('pending-count') as HTMLSpanElement;
+const pendingDontAskEl = document.getElementById('pending-dont-ask') as HTMLInputElement;
 
 versionEl.textContent = `v${chrome.runtime.getManifest().version}`;
 
@@ -452,4 +458,103 @@ function formatRelative(ts: number): string {
   return `${day} 天前`;
 }
 
+async function loadPendingAdditions(): Promise<void> {
+  const res = await send<ListPendingAdditionsResponse>({ type: 'LIST_PENDING_ADDITIONS' });
+  if (!res.ok || res.pending.length === 0) {
+    pendingSection.hidden = true;
+    pendingListEl.replaceChildren();
+    pendingDontAskEl.checked = false;
+    return;
+  }
+  pendingSection.hidden = false;
+  pendingCountEl.textContent = `${res.pending.length} 個`;
+  pendingListEl.replaceChildren(...res.pending.map(renderPendingItem));
+}
+
+function renderPendingItem(p: PendingAdditionView): HTMLLIElement {
+  const isAdd = p.kind === 'add';
+  const li = document.createElement('li');
+  li.className = `pending-item pending-item--${p.kind}`;
+  li.dataset.id = p.id;
+
+  const info = document.createElement('div');
+  info.className = 'pending-info';
+
+  const titleEl = document.createElement('p');
+  titleEl.className = 'pending-tab-title';
+  const kindBadge = document.createElement('span');
+  kindBadge.className = `pending-kind pending-kind--${p.kind}`;
+  kindBadge.textContent = isAdd ? '加入' : '移除';
+  titleEl.append(kindBadge, ' ', p.title || p.url);
+  titleEl.title = p.title || p.url;
+  info.appendChild(titleEl);
+
+  const meta = document.createElement('p');
+  meta.className = 'pending-meta';
+  const dot = document.createElement('span');
+  dot.className = `task-dot task-dot--${p.taskColor}`;
+  meta.appendChild(dot);
+  const taskNameEl = document.createElement('span');
+  taskNameEl.textContent = p.taskName;
+  meta.appendChild(taskNameEl);
+  info.appendChild(meta);
+
+  li.appendChild(info);
+
+  const actions = document.createElement('div');
+  actions.className = 'pending-actions';
+
+  const yesBtn = document.createElement('button');
+  yesBtn.type = 'button';
+  yesBtn.textContent = isAdd ? '加入' : '移除';
+  yesBtn.addEventListener('click', () => void onResolvePending(p.kind, p.id, true));
+  actions.appendChild(yesBtn);
+
+  const noBtn = document.createElement('button');
+  noBtn.type = 'button';
+  noBtn.className = 'ghost';
+  noBtn.textContent = isAdd ? '略過' : '保留';
+  noBtn.addEventListener('click', () => void onResolvePending(p.kind, p.id, false));
+  actions.appendChild(noBtn);
+
+  li.appendChild(actions);
+  return li;
+}
+
+const REMEMBER_MESSAGES: Record<`${PendingKind}:${'yes' | 'no'}`, string> = {
+  'add:yes': '已記住：之後拖入分頁會自動加入任務',
+  'add:no': '已記住：之後拖入分頁不會加入任務',
+  'remove:yes': '已記住：之後拖出分頁會自動從任務移除',
+  'remove:no': '已記住：之後拖出分頁會保留在任務',
+};
+
+async function onResolvePending(
+  kind: PendingKind,
+  id: string,
+  confirm: boolean,
+): Promise<void> {
+  const dontAskAgain = pendingDontAskEl.checked;
+  const res = await send<SimpleResponse>({
+    type: 'RESOLVE_PENDING_ADDITION',
+    id,
+    confirm,
+    dontAskAgain,
+  });
+  if (!res.ok) {
+    setStatus(statusEl, `錯誤：${res.error}`, 'error');
+    return;
+  }
+  pendingDontAskEl.checked = false;
+  if (dontAskAgain) {
+    setStatus(statusEl, REMEMBER_MESSAGES[`${kind}:${confirm ? 'yes' : 'no'}`], 'success');
+  }
+}
+
 void loadBanner();
+void loadPendingAdditions();
+
+chrome.storage.session.onChanged.addListener((changes) => {
+  if (PENDING_ADDITIONS_KEY in changes) {
+    void loadPendingAdditions();
+  }
+});

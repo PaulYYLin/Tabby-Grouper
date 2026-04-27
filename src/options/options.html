@@ -43,6 +43,26 @@
           >（例：<code>openai/gpt-4o-mini</code>）
         </p>
 
+        <label for="add-policy">手動拖入分頁時</label>
+        <select id="add-policy" name="addDraggedTabPolicy">
+          <option value="ask">每次詢問</option>
+          <option value="always">自動加入任務</option>
+          <option value="never">不加入任務</option>
+        </select>
+        <p class="hint">
+          當你把分頁手動拖進已記錄的群組時，要不要把它寫進該任務的分頁清單。預設「每次詢問」會跳系統通知。
+        </p>
+
+        <label for="remove-policy">手動拖出分頁時</label>
+        <select id="remove-policy" name="removeDraggedTabPolicy">
+          <option value="ask">每次詢問</option>
+          <option value="always">自動從任務移除</option>
+          <option value="never">保留在任務</option>
+        </select>
+        <p class="hint">
+          當你把已記錄的分頁拖出群組時，要不要從該任務的分頁清單移除。
+        </p>
+
         <button type="submit">儲存</button>
         <p id="save-status" class="status"></p>
       </form>

@@ -589,3 +589,136 @@ button.icon-btn--danger:hover:not(:disabled) {
   padding: 11px 12px;
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
 }
+
+.pending {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(255, 117, 31, 0.4);
+  border-radius: 6px;
+  background: rgba(255, 117, 31, 0.06);
+}
+
+.pending[hidden] {
+  display: none;
+}
+
+.pending-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.pending-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-hover);
+}
+
+.pending-count {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent-hover);
+  padding: 1px 8px;
+  background: rgba(255, 117, 31, 0.12);
+  border-radius: 999px;
+}
+
+.pending-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.pending-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.pending-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pending-tab-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pending-meta {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pending-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.pending-actions button {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.pending-remember {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.pending-remember input {
+  margin: 0;
+}
+
+.pending-kind {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 5px;
+  margin-right: 4px;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+
+.pending-kind--add {
+  color: var(--accent-hover);
+  background: rgba(255, 117, 31, 0.15);
+}
+
+.pending-kind--remove {
+  color: var(--error);
+  background: rgba(207, 34, 46, 0.1);
+}

@@ -10,17 +10,41 @@ import {
 import { classifyTabs, DEFAULT_MODEL, type TabInfo } from './lib/openrouter';
 import { resumeTask } from './lib/resume';
 import {
+  addPendingAddition,
+  addTabToTask,
   addTask,
+  deleteCachedTab,
   deleteTask as deleteTaskRecord,
+  getCachedGroupForTab,
+  getDraggedTabPolicy,
   getTaskIdForGroup,
   mutateTask,
+  readPendingAdditions,
   readTasks,
+  removePendingAdditionById,
+  removePendingAdditionsByTab,
+  removePendingAdditionsByTask,
+  removeTabFromTaskByUrl,
+  replaceTabGroupCache,
+  setCachedGroupForTab,
+  setDraggedTabPolicy,
+  setPendingAdditions,
 } from './lib/storage';
-import { MAX_TASK_SUMMARY_LEN, newTaskId, type Task } from './lib/tasks';
+import {
+  GROUP_MAP_KEY,
+  MAX_TASK_SUMMARY_LEN,
+  TAB_GROUP_CACHE_KEY,
+  newPendingAdditionId,
+  newTaskId,
+  type PendingAddition,
+  type Task,
+} from './lib/tasks';
 import type {
   GroupTabsResponse,
+  ListPendingAdditionsResponse,
   ListTasksResponse,
   Message,
+  PendingAdditionView,
   PendingResumeResponse,
   ResumeTaskResponse,
   SimpleResponse,
@@ -31,7 +55,8 @@ type AnyResponse =
   | ListTasksResponse
   | ResumeTaskResponse
   | SimpleResponse
-  | PendingResumeResponse;
+  | PendingResumeResponse
+  | ListPendingAdditionsResponse;
 
 chrome.runtime.onMessage.addListener(
   (msg: Message, _sender, sendResponse: (r: AnyResponse) => void) => {
@@ -60,6 +85,10 @@ async function handleMessage(msg: Message): Promise<AnyResponse> {
       return handleGetPendingResume();
     case 'DISMISS_PENDING':
       return handleDismissPending(msg.taskId);
+    case 'LIST_PENDING_ADDITIONS':
+      return handleListPendingAdditions();
+    case 'RESOLVE_PENDING_ADDITION':
+      return handleResolvePendingAddition(msg.id, msg.confirm, msg.dontAskAgain);
   }
 }
 
@@ -143,6 +172,8 @@ async function handleResumeTask(taskId: string): Promise<ResumeTaskResponse> {
 
 async function handleDeleteTask(taskId: string): Promise<SimpleResponse> {
   await deleteTaskRecord(taskId);
+  await removePendingAdditionsByTask(taskId);
+  await updateBadge();
   return { ok: true };
 }
 
@@ -173,15 +204,236 @@ async function handleDismissPending(taskId: string): Promise<SimpleResponse> {
   return { ok: true };
 }
 
+async function handleListPendingAdditions(): Promise<ListPendingAdditionsResponse> {
+  const [list, state] = await Promise.all([readPendingAdditions(), readTasks()]);
+  const live = list.filter((e) => state.tasks[e.taskId]);
+  if (live.length !== list.length) await setPendingAdditions(live);
+  const pending: PendingAdditionView[] = live.map((e) => {
+    const task = state.tasks[e.taskId];
+    return { ...e, taskName: task.name, taskColor: task.color };
+  });
+  await updateBadge(live);
+  return { ok: true, pending };
+}
+
+async function handleResolvePendingAddition(
+  id: string,
+  confirm: boolean,
+  dontAskAgain: boolean,
+): Promise<SimpleResponse> {
+  void chrome.notifications.clear(NOTIFICATION_PREFIX + id);
+  const entry = await removePendingAdditionById(id);
+  if (entry && confirm) {
+    if (entry.kind === 'add') {
+      let url = entry.url;
+      let title = entry.title;
+      let favIconUrl = entry.favIconUrl;
+      try {
+        const tab = await chrome.tabs.get(entry.tabId);
+        if (tab.url) url = tab.url;
+        if (typeof tab.title === 'string' && tab.title.length > 0) title = tab.title;
+        if (tab.favIconUrl) favIconUrl = tab.favIconUrl;
+      } catch {
+        // tab may be closed; fall back to stored snapshot
+      }
+      await addTabToTask(entry.taskId, { url, title, favIconUrl });
+    } else {
+      await removeTabFromTaskByUrl(entry.taskId, entry.url);
+    }
+  }
+  if (dontAskAgain && entry) {
+    await setDraggedTabPolicy(entry.kind, confirm ? 'always' : 'never');
+  }
+  await updateBadge();
+  return { ok: true };
+}
+
+async function updateBadge(list?: PendingAddition[]): Promise<void> {
+  const items = list ?? (await readPendingAdditions());
+  const text = items.length > 0 ? String(items.length) : '';
+  await chrome.action.setBadgeText({ text });
+  if (items.length > 0) {
+    await chrome.action.setBadgeBackgroundColor({ color: '#ff751f' });
+  }
+}
+
+async function resolveTaskIdForGroup(groupId: number): Promise<string | undefined> {
+  let taskId = await getTaskIdForGroup(groupId);
+  if (taskId) return taskId;
+  await rebuildGroupTaskMap();
+  taskId = await getTaskIdForGroup(groupId);
+  return taskId;
+}
+
+async function onTabJoinedGroup(tabId: number, groupId: number): Promise<void> {
+  const taskId = await resolveTaskIdForGroup(groupId);
+  if (!taskId) return;
+
+  const [tabRes, state, policy] = await Promise.all([
+    chrome.tabs.get(tabId).catch(() => undefined),
+    readTasks(),
+    getDraggedTabPolicy('add'),
+  ]);
+  if (!tabRes) return;
+  if (!isGroupableTab(tabRes)) return;
+  if (tabRes.groupId !== groupId) return;
+
+  const task = state.tasks[taskId];
+  if (!task) return;
+  if (task.tabs.some((x) => x.url === tabRes.url)) return;
+  if (policy === 'never') return;
+
+  const newTab = {
+    url: tabRes.url!,
+    title: tabRes.title ?? '',
+    favIconUrl: tabRes.favIconUrl,
+  };
+  if (policy === 'always') {
+    await addTabToTask(taskId, newTab);
+    return;
+  }
+
+  const pendingId = newPendingAdditionId();
+  await addPendingAddition({
+    id: pendingId,
+    kind: 'add',
+    taskId,
+    tabId,
+    ...newTab,
+    addedAt: Date.now(),
+  });
+  await updateBadge();
+  await showDecisionNotification('add', pendingId, newTab.title || newTab.url, task.name);
+}
+
+async function onTabLeftGroup(tabId: number, oldGroupId: number): Promise<void> {
+  const taskId = await resolveTaskIdForGroup(oldGroupId);
+  if (!taskId) return;
+
+  const [tabRes, state, policy] = await Promise.all([
+    chrome.tabs.get(tabId).catch(() => undefined),
+    readTasks(),
+    getDraggedTabPolicy('remove'),
+  ]);
+  if (!tabRes?.url) return;
+  const url = tabRes.url;
+  const title = tabRes.title ?? '';
+  const favIconUrl = tabRes.favIconUrl;
+
+  const task = state.tasks[taskId];
+  if (!task) return;
+  const tracked = task.tabs.find((x) => x.url === url);
+  if (!tracked) return;
+  if (policy === 'never') return;
+
+  if (policy === 'always') {
+    await removeTabFromTaskByUrl(taskId, url);
+    return;
+  }
+
+  const pendingId = newPendingAdditionId();
+  await addPendingAddition({
+    id: pendingId,
+    kind: 'remove',
+    taskId,
+    tabId,
+    url,
+    title: title || tracked.title,
+    favIconUrl: favIconUrl ?? tracked.favIconUrl,
+    addedAt: Date.now(),
+  });
+  await updateBadge();
+  await showDecisionNotification(
+    'remove',
+    pendingId,
+    title || tracked.title || url,
+    task.name,
+  );
+}
+
+const NOTIFICATION_PREFIX = 'tabby-decide:';
+
+async function showDecisionNotification(
+  kind: 'add' | 'remove',
+  pendingId: string,
+  tabTitle: string,
+  taskName: string,
+): Promise<void> {
+  const iconUrl = chrome.runtime.getURL('icons/128.png');
+  const isAdd = kind === 'add';
+  await chrome.notifications.create(NOTIFICATION_PREFIX + pendingId, {
+    type: 'basic',
+    iconUrl,
+    title: isAdd ? `加入「${taskName}」？` : `從「${taskName}」移除？`,
+    message: tabTitle,
+    contextMessage: isAdd
+      ? '剛剛拖入的分頁是否要記錄到此任務？'
+      : '剛剛拖出的分頁是否要從此任務移除？',
+    buttons: isAdd
+      ? [{ title: '加入' }, { title: '略過' }]
+      : [{ title: '移除' }, { title: '保留' }],
+    requireInteraction: true,
+    priority: 1,
+  });
+}
+
+chrome.notifications.onButtonClicked.addListener((notifId, btnIdx) => {
+  if (!notifId.startsWith(NOTIFICATION_PREFIX)) return;
+  const pendingId = notifId.slice(NOTIFICATION_PREFIX.length);
+  void (async () => {
+    await handleResolvePendingAddition(pendingId, btnIdx === 0, false);
+    await chrome.notifications.clear(notifId);
+  })();
+});
+
+chrome.notifications.onClicked.addListener((notifId) => {
+  if (!notifId.startsWith(NOTIFICATION_PREFIX)) return;
+  void chrome.notifications.clear(notifId);
+});
+
+async function rebuildTabGroupCache(): Promise<void> {
+  const tabs = await chrome.tabs.query({});
+  const cache: Record<number, number> = {};
+  for (const t of tabs) {
+    if (typeof t.id === 'number' && typeof t.groupId === 'number') {
+      cache[t.id] = t.groupId;
+    }
+  }
+  await replaceTabGroupCache(cache);
+}
+
+let cachesReady: Promise<void> | undefined;
+function ensureCachesReady(): Promise<void> {
+  if (!cachesReady) {
+    cachesReady = (async () => {
+      const stored = await chrome.storage.session.get([GROUP_MAP_KEY, TAB_GROUP_CACHE_KEY]);
+      const tasks: Promise<unknown>[] = [];
+      if (!stored[GROUP_MAP_KEY]) tasks.push(rebuildGroupTaskMap());
+      if (!stored[TAB_GROUP_CACHE_KEY]) tasks.push(rebuildTabGroupCache());
+      await Promise.all(tasks);
+    })();
+  }
+  return cachesReady;
+}
+
+function fullInit(): Promise<void> {
+  cachesReady = (async () => {
+    await Promise.all([rebuildGroupTaskMap(), rebuildTabGroupCache()]);
+  })();
+  return (async () => {
+    await readTasks();
+    await cachesReady;
+    await detectPendingResumes();
+    await updateBadge();
+  })();
+}
+
 chrome.runtime.onInstalled.addListener(() => {
-  void readTasks();
+  void fullInit();
 });
 
 chrome.runtime.onStartup.addListener(() => {
-  void (async () => {
-    await rebuildGroupTaskMap();
-    await detectPendingResumes();
-  })();
+  void fullInit();
 });
 
 chrome.tabGroups.onUpdated.addListener((group) => {
@@ -197,5 +449,48 @@ chrome.tabGroups.onRemoved.addListener((group) => {
     const taskId = await getTaskIdForGroup(group.id);
     if (!taskId) return;
     await archiveGroup(group.id, taskId);
+    await removePendingAdditionsByTask(taskId);
+    await updateBadge();
+  })();
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.groupId === undefined) return;
+  const newGroupId = changeInfo.groupId;
+  void (async () => {
+    await ensureCachesReady();
+    const oldGroupId = await getCachedGroupForTab(tabId);
+    await setCachedGroupForTab(tabId, newGroupId);
+
+    if (
+      typeof oldGroupId === 'number' &&
+      oldGroupId !== chrome.tabGroups.TAB_GROUP_ID_NONE &&
+      oldGroupId !== newGroupId
+    ) {
+      await onTabLeftGroup(tabId, oldGroupId);
+    }
+
+    if (newGroupId === chrome.tabGroups.TAB_GROUP_ID_NONE) return;
+
+    await onTabJoinedGroup(tabId, newGroupId);
+  })();
+});
+
+chrome.tabs.onCreated.addListener((tab) => {
+  if (typeof tab.id !== 'number' || typeof tab.groupId !== 'number') return;
+  const tabId = tab.id;
+  const groupId = tab.groupId;
+  void (async () => {
+    await ensureCachesReady();
+    await setCachedGroupForTab(tabId, groupId);
+  })();
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  void (async () => {
+    await ensureCachesReady();
+    await removePendingAdditionsByTab(tabId);
+    await deleteCachedTab(tabId);
+    await updateBadge();
   })();
 });
