@@ -3,12 +3,15 @@ import { getLang, onLangChange, tFor, type Lang } from './lib/i18n';
 import {
   archiveGroup,
   bindNewGroup,
-  detectPendingResumes,
-  dismissPendingResume,
   rebuildGroupTaskMap,
   syncTaskNameAndColor,
 } from './lib/groupSync';
-import { classifyTabs, DEFAULT_MODEL, type TabInfo } from './lib/openrouter';
+import {
+  DEFAULT_MODEL,
+  reclassifyTabs,
+  type ExistingGroupInput,
+  type TabInfo,
+} from './lib/openrouter';
 import { resumeTask } from './lib/resume';
 import {
   addPendingAddition,
@@ -20,6 +23,7 @@ import {
   getDraggedTabPolicy,
   getTaskIdForGroup,
   mutateTask,
+  readGroupTaskMap,
   readPendingAdditions,
   readTasks,
   removePendingAdditionById,
@@ -46,7 +50,6 @@ import type {
   ListTasksResponse,
   Message,
   PendingAdditionView,
-  PendingResumeResponse,
   ResumeTaskResponse,
   SimpleResponse,
 } from './lib/messages';
@@ -56,7 +59,6 @@ type AnyResponse =
   | ListTasksResponse
   | ResumeTaskResponse
   | SimpleResponse
-  | PendingResumeResponse
   | ListPendingAdditionsResponse;
 
 let cachedLang: Lang | null = null;
@@ -92,10 +94,6 @@ async function handleMessage(msg: Message): Promise<AnyResponse> {
       return handleDeleteTask(msg.taskId);
     case 'UPDATE_TASK_SUMMARY':
       return handleUpdateTaskSummary(msg.taskId, msg.summary);
-    case 'GET_PENDING_RESUME':
-      return handleGetPendingResume();
-    case 'DISMISS_PENDING':
-      return handleDismissPending(msg.taskId);
     case 'LIST_PENDING_ADDITIONS':
       return handleListPendingAdditions();
     case 'RESOLVE_PENDING_ADDITION':
@@ -114,57 +112,151 @@ async function handleGroupTabs(instruction?: string): Promise<GroupTabsResponse>
     return { ok: false, error: t('errNoApiKey') };
   }
 
-  const tabs = await chrome.tabs.query({ currentWindow: true });
-  const candidates: TabInfo[] = tabs
-    .filter(isGroupableTab)
-    .map((tab) => ({ id: tab.id, title: tab.title ?? '', url: tab.url }));
+  await ensureCachesReady();
 
-  if (candidates.length < 2) {
+  const tabs = await chrome.tabs.query({ currentWindow: true });
+  const candidates = tabs.filter(isGroupableTab);
+
+  const groupMap = await readGroupTaskMap();
+  const tasksState = await readTasks();
+
+  // Bucket candidates: tabs in tracked groups -> existingGroups; ungrouped -> free
+  // Tabs in untracked Chrome groups (e.g. user-made) are left alone.
+  const trackedBuckets = new Map<number, (chrome.tabs.Tab & { id: number; url: string })[]>();
+  const free: (chrome.tabs.Tab & { id: number; url: string })[] = [];
+  for (const tab of candidates) {
+    const gid = tab.groupId;
+    const inTrackedGroup =
+      typeof gid === 'number' && gid !== chrome.tabGroups.TAB_GROUP_ID_NONE && !!groupMap[gid];
+    if (inTrackedGroup) {
+      const list = trackedBuckets.get(gid) ?? [];
+      list.push(tab);
+      trackedBuckets.set(gid, list);
+    } else if (gid === undefined || gid === chrome.tabGroups.TAB_GROUP_ID_NONE) {
+      free.push(tab);
+    }
+  }
+
+  const existingGroups: ExistingGroupInput[] = [];
+  const groupKeyToId = new Map<string, number>();
+  const groupKeyToTaskId = new Map<string, string>();
+  for (const [gid, tabsInGroup] of trackedBuckets) {
+    const taskId = groupMap[gid];
+    const task = tasksState.tasks[taskId];
+    if (!task) continue;
+    const groupKey = `g_${gid}`;
+    groupKeyToId.set(groupKey, gid);
+    groupKeyToTaskId.set(groupKey, taskId);
+    existingGroups.push({
+      groupKey,
+      groupName: task.name,
+      summary: task.summary,
+      tabs: tabsInGroup.map((x) => ({ id: x.id, title: x.title ?? '', url: x.url })),
+    });
+  }
+
+  const freeTabInfos: TabInfo[] = free.map((x) => ({
+    id: x.id,
+    title: x.title ?? '',
+    url: x.url,
+  }));
+
+  if (existingGroups.length === 0 && freeTabInfos.length < 2) {
     return { ok: false, error: t('errTooFewTabs') };
   }
 
-  const groups = await classifyTabs(apiKey, model || DEFAULT_MODEL, candidates, instruction, lang);
+  const result = await reclassifyTabs(
+    apiKey,
+    model || DEFAULT_MODEL,
+    existingGroups,
+    freeTabInfos,
+    instruction,
+    lang,
+  );
 
-  if (groups.length === 0) {
+  const tabById = new Map<number, chrome.tabs.Tab>();
+  for (const tt of tabs) if (typeof tt.id === 'number') tabById.set(tt.id, tt);
+
+  let groupedTabCount = 0;
+  let touchedGroupCount = 0;
+
+  for (const upd of result.existingGroups) {
+    const gid = groupKeyToId.get(upd.groupKey);
+    const taskId = groupKeyToTaskId.get(upd.groupKey);
+    const original = existingGroups.find((g) => g.groupKey === upd.groupKey);
+    if (gid === undefined || taskId === undefined || !original) continue;
+
+    const originalIds = new Set(original.tabs.map((tb) => tb.id));
+    const newIds = new Set(upd.tabIds);
+    const toRemove = [...originalIds].filter((id) => !newIds.has(id));
+    const toAdd = [...newIds].filter((id) => !originalIds.has(id));
+
+    if (toRemove.length > 0) {
+      try {
+        await chrome.tabs.ungroup(toRemove);
+      } catch {
+        // tabs may have been closed
+      }
+    }
+    if (toAdd.length > 0) {
+      try {
+        await chrome.tabs.group({ groupId: gid, tabIds: toAdd });
+      } catch {
+        // tabs may have been closed or moved windows
+      }
+    }
+
+    if (toRemove.length > 0 || toAdd.length > 0) {
+      const updatedTabs = upd.tabIds
+        .map((id) => tabById.get(id))
+        .filter((tb): tb is chrome.tabs.Tab => !!tb)
+        .filter(isGroupableTab)
+        .map((tb) => ({ url: tb.url, title: tb.title ?? '', favIconUrl: tb.favIconUrl }));
+      await mutateTask(taskId, (curr) => ({
+        ...curr,
+        tabs: updatedTabs,
+        updatedAt: Date.now(),
+      }));
+      touchedGroupCount++;
+    }
+    groupedTabCount += newIds.size;
+  }
+
+  for (const g of result.newGroups) {
+    const color = pickColor(g.groupName);
+    const groupId = await chrome.tabs.group({ tabIds: g.tabIds });
+    await chrome.tabGroups.update(groupId, { title: g.groupName, color });
+
+    const now = Date.now();
+    const task: Task = {
+      id: newTaskId(),
+      name: g.groupName,
+      color,
+      tabs: g.tabIds
+        .map((id) => tabById.get(id))
+        .filter((tb): tb is chrome.tabs.Tab => !!tb)
+        .filter(isGroupableTab)
+        .map((tb) => ({ url: tb.url, title: tb.title ?? '', favIconUrl: tb.favIconUrl })),
+      instruction,
+      summary: g.summary || undefined,
+      createdAt: now,
+      updatedAt: now,
+      status: 'live',
+      version: 1,
+    };
+    await addTask(task);
+    await bindNewGroup(groupId, task);
+    groupedTabCount += g.tabIds.length;
+  }
+
+  if (result.newGroups.length === 0 && touchedGroupCount === 0) {
     return { ok: false, error: t('errNoGroupsFound') };
   }
 
-  const tabById = new Map<number, chrome.tabs.Tab>();
-  for (const t of tabs) if (typeof t.id === 'number') tabById.set(t.id, t);
-
-  const counts = await Promise.all(
-    groups.map(async (g) => {
-      const color = pickColor(g.groupName);
-      const groupId = await chrome.tabs.group({ tabIds: g.tabIds });
-      await chrome.tabGroups.update(groupId, { title: g.groupName, color });
-
-      const now = Date.now();
-      const task: Task = {
-        id: newTaskId(),
-        name: g.groupName,
-        color,
-        tabs: g.tabIds
-          .map((id) => tabById.get(id))
-          .filter((t): t is chrome.tabs.Tab => !!t)
-          .filter(isGroupableTab)
-          .map((t) => ({ url: t.url, title: t.title ?? '', favIconUrl: t.favIconUrl })),
-        instruction,
-        summary: g.summary || undefined,
-        createdAt: now,
-        updatedAt: now,
-        status: 'live',
-        version: 1,
-      };
-      await addTask(task);
-      await bindNewGroup(groupId, task);
-      return g.tabIds.length;
-    }),
-  );
-
   return {
     ok: true,
-    groupCount: groups.length,
-    groupedTabCount: counts.reduce((a, b) => a + b, 0),
+    groupCount: result.newGroups.length + touchedGroupCount,
+    groupedTabCount,
   };
 }
 
@@ -184,6 +276,20 @@ async function handleResumeTask(taskId: string): Promise<ResumeTaskResponse> {
 }
 
 async function handleDeleteTask(taskId: string): Promise<SimpleResponse> {
+  const map = await readGroupTaskMap();
+  const groupIdStr = Object.keys(map).find((gid) => map[Number(gid)] === taskId);
+  if (groupIdStr !== undefined) {
+    const groupId = Number(groupIdStr);
+    try {
+      const groupTabs = await chrome.tabs.query({ groupId });
+      const tabIds = groupTabs
+        .map((t) => t.id)
+        .filter((id): id is number => typeof id === 'number');
+      if (tabIds.length > 0) await chrome.tabs.remove(tabIds);
+    } catch {
+      // group may already be gone; fall through to delete the task record
+    }
+  }
   await deleteTaskRecord(taskId);
   await removePendingAdditionsByTask(taskId);
   await updateBadge();
@@ -200,20 +306,6 @@ async function handleUpdateTaskSummary(
     summary: trimmed || undefined,
     updatedAt: Date.now(),
   }));
-  return { ok: true };
-}
-
-async function handleGetPendingResume(): Promise<PendingResumeResponse> {
-  const ids = await detectPendingResumes();
-  const state = await readTasks();
-  const tasks = ids
-    .map((id) => state.tasks[id])
-    .filter((t): t is Task => !!t);
-  return { ok: true, tasks };
-}
-
-async function handleDismissPending(taskId: string): Promise<SimpleResponse> {
-  await dismissPendingResume(taskId);
   return { ok: true };
 }
 
@@ -435,7 +527,6 @@ function fullInit(): Promise<void> {
   return (async () => {
     await readTasks();
     await cachesReady;
-    await detectPendingResumes();
     await updateBadge();
   })();
 }

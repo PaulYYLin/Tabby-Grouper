@@ -20,10 +20,6 @@ const dict = {
     tasksNoMatch: '沒有符合的任務',
     optionsLink: '開啟設定',
 
-    bannerCta: '一鍵恢復',
-    bannerDismiss: '略過',
-    bannerText: (name: string, n: number) => `恢復「${name}」研究？（${n} 個分頁）`,
-
     pendingTitle: '分頁變動待確認',
     pendingDontAsk: '之後都不要再詢問（套用到下次點選的選擇）',
     pendingKindAdd: '加入',
@@ -67,7 +63,7 @@ const dict = {
       `已恢復「${name}」：新開 ${opened} 個、沿用 ${reused} 個分頁`,
     statusCopied: (name: string, n: number) => `已複製「${name}」（${n} 個分頁）`,
     statusCopyFailed: (msg: string) => `複製失敗：${msg}`,
-    confirmDelete: (name: string) => `確定刪除任務「${name}」？`,
+    confirmDelete: (name: string) => `確定刪除任務「${name}」？此任務對應的瀏覽器群組與分頁也會一起關閉。`,
 
     relJustNow: '剛剛',
     relMinutes: (n: number) => `${n} 分鐘前`,
@@ -138,10 +134,6 @@ const dict = {
     tasksNoMatch: 'No matching tasks',
     optionsLink: 'Open settings',
 
-    bannerCta: 'Restore',
-    bannerDismiss: 'Dismiss',
-    bannerText: (name: string, n: number) => `Restore "${name}"? (${n} tabs)`,
-
     pendingTitle: 'Tab changes pending',
     pendingDontAsk: "Don't ask again (apply this choice next time)",
     pendingKindAdd: 'Add',
@@ -185,7 +177,7 @@ const dict = {
       `Restored "${name}": opened ${opened}, reused ${reused} tab${opened + reused === 1 ? '' : 's'}`,
     statusCopied: (name: string, n: number) => `Copied "${name}" (${n} tabs)`,
     statusCopyFailed: (msg: string) => `Copy failed: ${msg}`,
-    confirmDelete: (name: string) => `Delete task "${name}"?`,
+    confirmDelete: (name: string) => `Delete task "${name}"? The matching browser group and its tabs will also be closed.`,
 
     relJustNow: 'just now',
     relMinutes: (n: number) => `${n} min${n === 1 ? '' : 's'} ago`,

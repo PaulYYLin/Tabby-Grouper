@@ -6,7 +6,6 @@ import type {
   ListTasksResponse,
   Message,
   PendingAdditionView,
-  PendingResumeResponse,
   ResumeTaskResponse,
   SimpleResponse,
 } from '../lib/messages';
@@ -26,10 +25,6 @@ const tasksNoMatchEl = document.getElementById('tasks-no-match') as HTMLParagrap
 const groupView = document.getElementById('view-group') as HTMLElement;
 const tasksView = document.getElementById('view-tasks') as HTMLElement;
 const tabButtons = document.querySelectorAll<HTMLButtonElement>('.tab');
-const banner = document.getElementById('resume-banner') as HTMLElement;
-const bannerText = document.getElementById('resume-banner-text') as HTMLParagraphElement;
-const bannerBtn = document.getElementById('resume-banner-btn') as HTMLButtonElement;
-const bannerDismiss = document.getElementById('resume-banner-dismiss') as HTMLButtonElement;
 const pendingSection = document.getElementById('pending-additions') as HTMLElement;
 const pendingListEl = document.getElementById('pending-list') as HTMLUListElement;
 const pendingCountEl = document.getElementById('pending-count') as HTMLSpanElement;
@@ -336,7 +331,6 @@ async function onResume(task: Task): Promise<void> {
       t('statusResumed')(task.name, res.openedCount, res.reusedCount),
       'success',
     );
-    hideBannerFor(task.id);
     void loadTasks();
   } else {
     setStatus(tasksStatusEl, t('statusError')(res.error), 'error');
@@ -397,51 +391,9 @@ async function onDelete(task: Task): Promise<void> {
   if (!confirm(t('confirmDelete')(task.name))) return;
   const res = await send<SimpleResponse>({ type: 'DELETE_TASK', taskId: task.id });
   if (res.ok) {
-    hideBannerFor(task.id);
     void loadTasks();
   } else {
     setStatus(tasksStatusEl, t('statusError')(res.error), 'error');
-  }
-}
-
-let bannerTaskId: string | undefined;
-
-async function loadBanner(): Promise<void> {
-  const res = await send<PendingResumeResponse>({ type: 'GET_PENDING_RESUME' });
-  if (!res.ok || res.tasks.length === 0) {
-    banner.hidden = true;
-    return;
-  }
-  const task = res.tasks[0];
-  bannerTaskId = task.id;
-  bannerText.textContent = t('bannerText')(task.name, task.tabs.length);
-  banner.hidden = false;
-}
-
-bannerBtn.addEventListener('click', async () => {
-  if (!bannerTaskId) return;
-  const id = bannerTaskId;
-  const list = await send<ListTasksResponse>({ type: 'LIST_TASKS' });
-  if (!list.ok) {
-    setStatus(statusEl, t('statusError')(list.error), 'error');
-    return;
-  }
-  const task = list.tasks.find((x) => x.id === id);
-  if (!task) return;
-  await onResume(task);
-});
-
-bannerDismiss.addEventListener('click', async () => {
-  if (!bannerTaskId) return;
-  await send<SimpleResponse>({ type: 'DISMISS_PENDING', taskId: bannerTaskId });
-  banner.hidden = true;
-  bannerTaskId = undefined;
-});
-
-function hideBannerFor(taskId: string): void {
-  if (bannerTaskId === taskId) {
-    banner.hidden = true;
-    bannerTaskId = undefined;
   }
 }
 
@@ -557,10 +509,9 @@ onLangChange((next) => {
   t = tFor(lang);
   document.documentElement.lang = htmlLangFor(lang);
   applyDomI18n(t);
-  void Promise.all([loadTasks(), loadBanner(), loadPendingAdditions()]);
+  void Promise.all([loadTasks(), loadPendingAdditions()]);
 });
 
-void loadBanner();
 void loadPendingAdditions();
 
 chrome.storage.session.onChanged.addListener((changes) => {

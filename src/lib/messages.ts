@@ -6,8 +6,6 @@ export type Message =
   | { type: 'RESUME_TASK'; taskId: string }
   | { type: 'DELETE_TASK'; taskId: string }
   | { type: 'UPDATE_TASK_SUMMARY'; taskId: string; summary: string }
-  | { type: 'GET_PENDING_RESUME' }
-  | { type: 'DISMISS_PENDING'; taskId: string }
   | { type: 'LIST_PENDING_ADDITIONS' }
   | {
       type: 'RESOLVE_PENDING_ADDITION';
@@ -34,10 +32,6 @@ export type ResumeTaskResponse =
   | { ok: false; error: string };
 
 export type SimpleResponse = { ok: true } | { ok: false; error: string };
-
-export type PendingResumeResponse =
-  | { ok: true; tasks: Task[] }
-  | { ok: false; error: string };
 
 export type ListPendingAdditionsResponse =
   | { ok: true; pending: PendingAdditionView[] }
