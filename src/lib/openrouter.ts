@@ -30,9 +30,82 @@ export interface ReclassifyResult {
 import { tFor, type Lang } from './i18n';
 import { MAX_AI_SUMMARY_LEN } from './tasks';
 
-export const DEFAULT_MODEL = 'google/gemini-2.5-flash-lite';
+export type Provider = 'openrouter' | 'openai' | 'gemini';
+export const DEFAULT_PROVIDER: Provider = 'openrouter';
+
+export interface ProviderInfo {
+  endpoint: string;
+  defaultModel: string;
+  exampleModel: string;
+  keysUrl: string;
+  modelsUrl: string;
+  modelsLinkText: string;
+  apiKeyPlaceholder: string;
+  modelPlaceholder: string;
+}
+
+export const PROVIDERS: Record<Provider, ProviderInfo> = {
+  openrouter: {
+    endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+    defaultModel: 'google/gemini-2.5-flash-lite',
+    exampleModel: 'openai/gpt-4o-mini',
+    keysUrl: 'https://openrouter.ai/keys',
+    modelsUrl: 'https://openrouter.ai/models',
+    modelsLinkText: 'openrouter.ai/models',
+    apiKeyPlaceholder: 'sk-or-...',
+    modelPlaceholder: 'google/gemini-2.5-flash-lite',
+  },
+  openai: {
+    endpoint: 'https://api.openai.com/v1/chat/completions',
+    defaultModel: 'gpt-4o-mini',
+    exampleModel: 'gpt-4o',
+    keysUrl: 'https://platform.openai.com/api-keys',
+    modelsUrl: 'https://platform.openai.com/docs/models',
+    modelsLinkText: 'platform.openai.com/docs/models',
+    apiKeyPlaceholder: 'sk-...',
+    modelPlaceholder: 'gpt-4o-mini',
+  },
+  gemini: {
+    endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    defaultModel: 'gemini-2.5-flash',
+    exampleModel: 'gemini-2.5-pro',
+    keysUrl: 'https://aistudio.google.com/apikey',
+    modelsUrl: 'https://ai.google.dev/gemini-api/docs/models',
+    modelsLinkText: 'ai.google.dev/gemini-api/docs/models',
+    apiKeyPlaceholder: 'AIza...',
+    modelPlaceholder: 'gemini-2.5-flash',
+  },
+};
+
+export function isProvider(v: unknown): v is Provider {
+  return v === 'openrouter' || v === 'openai' || v === 'gemini';
+}
+
+export type ProviderRecord = Record<Provider, string>;
+
+export function emptyProviderRecord(): ProviderRecord {
+  return { openrouter: '', openai: '', gemini: '' };
+}
+
+export function coerceProviderRecord(
+  v: unknown,
+  legacyOpenRouter?: unknown,
+): ProviderRecord {
+  const out = emptyProviderRecord();
+  if (typeof v === 'object' && v !== null) {
+    const o = v as Record<string, unknown>;
+    for (const p of ['openrouter', 'openai', 'gemini'] as Provider[]) {
+      if (typeof o[p] === 'string') out[p] = o[p];
+    }
+  }
+  if (!out.openrouter && typeof legacyOpenRouter === 'string' && legacyOpenRouter.length > 0) {
+    out.openrouter = legacyOpenRouter;
+  }
+  return out;
+}
+
+export const DEFAULT_MODEL = PROVIDERS.openrouter.defaultModel;
 export const MAX_INSTRUCTION_LEN = 512;
-const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 
 const MAX_TITLE_LEN = 80;
 const MAX_URL_TAIL_LEN = 80;
@@ -143,6 +216,7 @@ export async function reclassifyTabs(
   freeTabs: TabInfo[],
   instruction?: string,
   lang: Lang = 'zh',
+  provider: Provider = DEFAULT_PROVIDER,
 ): Promise<ReclassifyResult> {
   const t = tFor(lang);
   if (instruction && instruction.length > MAX_INSTRUCTION_LEN) {
@@ -160,13 +234,9 @@ export async function reclassifyTabs(
   const userMessage = buildReclassifyUserMessage(existing, freeTabs, instruction?.trim() || undefined, lang);
   const systemPrompt = lang === 'zh' ? SYSTEM_PROMPT_RECLASSIFY_ZH : SYSTEM_PROMPT_RECLASSIFY_EN;
 
-  const res = await fetch(ENDPOINT, {
+  const res = await fetch(PROVIDERS[provider].endpoint, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      'X-Title': 'Tabby Grouper',
-    },
+    headers: buildHeaders(provider, apiKey),
     body: JSON.stringify({
       model,
       messages: [
@@ -181,7 +251,7 @@ export async function reclassifyTabs(
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(t('errOpenRouterStatus')(res.status, body.slice(0, 200)));
+    throw new Error(t('errAiStatus')(providerLabel(provider), res.status, body.slice(0, 200)));
   }
 
   const data = await res.json();
@@ -308,6 +378,7 @@ export async function classifyTabs(
   tabs: TabInfo[],
   instruction?: string,
   lang: Lang = 'zh',
+  provider: Provider = DEFAULT_PROVIDER,
 ): Promise<GroupResult[]> {
   const t = tFor(lang);
   if (instruction && instruction.length > MAX_INSTRUCTION_LEN) {
@@ -321,13 +392,9 @@ export async function classifyTabs(
   const userMessage = buildUserMessage(tabList, instruction?.trim() || undefined, lang);
   const systemPrompt = lang === 'zh' ? SYSTEM_PROMPT_ZH : SYSTEM_PROMPT_EN;
 
-  const res = await fetch(ENDPOINT, {
+  const res = await fetch(PROVIDERS[provider].endpoint, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      'X-Title': 'Tabby Grouper',
-    },
+    headers: buildHeaders(provider, apiKey),
     body: JSON.stringify({
       model,
       messages: [
@@ -342,7 +409,7 @@ export async function classifyTabs(
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(t('errOpenRouterStatus')(res.status, body.slice(0, 200)));
+    throw new Error(t('errAiStatus')(providerLabel(provider), res.status, body.slice(0, 200)));
   }
 
   const data = await res.json();
@@ -451,6 +518,28 @@ ${tabBlock}`;
 - Tabs that cannot be confidently categorized should be left out
 
 ${tabBlock}`;
+}
+
+function buildHeaders(provider: Provider, apiKey: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${apiKey}`,
+  };
+  if (provider === 'openrouter') {
+    headers['X-Title'] = 'Tabby Grouper';
+  }
+  return headers;
+}
+
+function providerLabel(provider: Provider): string {
+  switch (provider) {
+    case 'openrouter':
+      return 'OpenRouter';
+    case 'openai':
+      return 'OpenAI';
+    case 'gemini':
+      return 'Gemini';
+  }
 }
 
 function stripCodeFence(s: string): string {

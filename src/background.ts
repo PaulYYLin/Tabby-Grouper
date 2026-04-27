@@ -7,7 +7,10 @@ import {
   syncTaskNameAndColor,
 } from './lib/groupSync';
 import {
-  DEFAULT_MODEL,
+  DEFAULT_PROVIDER,
+  PROVIDERS,
+  coerceProviderRecord,
+  isProvider,
   reclassifyTabs,
   type ExistingGroupInput,
   type TabInfo,
@@ -104,10 +107,22 @@ async function handleMessage(msg: Message): Promise<AnyResponse> {
 async function handleGroupTabs(instruction?: string): Promise<GroupTabsResponse> {
   const lang = await currentLang();
   const t = tFor(lang);
-  const { apiKey, model } = (await chrome.storage.sync.get(['apiKey', 'model'])) as {
-    apiKey?: string;
-    model?: string;
+  const stored = (await chrome.storage.sync.get([
+    'provider',
+    'apiKey',
+    'model',
+    'apiKeys',
+    'models',
+  ])) as {
+    provider?: unknown;
+    apiKey?: unknown;
+    model?: unknown;
+    apiKeys?: unknown;
+    models?: unknown;
   };
+  const provider = isProvider(stored.provider) ? stored.provider : DEFAULT_PROVIDER;
+  const apiKey = coerceProviderRecord(stored.apiKeys, stored.apiKey)[provider];
+  const model = coerceProviderRecord(stored.models, stored.model)[provider];
   if (!apiKey) {
     return { ok: false, error: t('errNoApiKey') };
   }
@@ -167,11 +182,12 @@ async function handleGroupTabs(instruction?: string): Promise<GroupTabsResponse>
 
   const result = await reclassifyTabs(
     apiKey,
-    model || DEFAULT_MODEL,
+    model || PROVIDERS[provider].defaultModel,
     existingGroups,
     freeTabInfos,
     instruction,
     lang,
+    provider,
   );
 
   const tabById = new Map<number, chrome.tabs.Tab>();

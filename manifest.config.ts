@@ -7,7 +7,11 @@ export default defineManifest({
   version: pkg.version,
   description: '使用 AI 自動分析並分組 Chrome 分頁',
   permissions: ['tabs', 'tabGroups', 'storage', 'notifications'],
-  host_permissions: ['https://openrouter.ai/*'],
+  host_permissions: [
+    'https://openrouter.ai/*',
+    'https://api.openai.com/*',
+    'https://generativelanguage.googleapis.com/*',
+  ],
   action: {
     default_popup: 'src/popup/popup.html',
     default_title: 'Tabby Grouper',

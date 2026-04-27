@@ -8,7 +8,10 @@
   </head>
   <body>
     <main>
-      <h1 data-i18n="optionsTitle"></h1>
+      <header class="brand">
+        <img class="brand-logo" src="/logo.png" alt="" />
+        <h1 data-i18n="optionsTitle"></h1>
+      </header>
 
       <section class="lang-section">
         <span class="lang-label" data-i18n="langSectionLabel"></span>
@@ -39,6 +42,13 @@
       </section>
 
       <form id="options-form">
+        <label for="provider" data-i18n="providerLabel"></label>
+        <select id="provider" name="provider">
+          <option value="openrouter" data-i18n="providerOpenRouter"></option>
+          <option value="openai" data-i18n="providerOpenAI"></option>
+          <option value="gemini" data-i18n="providerGemini"></option>
+        </select>
+
         <label for="api-key" data-i18n="apiKeyLabel"></label>
         <input
           id="api-key"
@@ -46,14 +56,11 @@
           type="password"
           autocomplete="off"
           spellcheck="false"
-          placeholder="sk-or-..."
           required
         />
         <p class="hint">
           <span data-i18n="apiKeyHintPrefix"></span>
-          <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer"
-            >openrouter.ai/keys</a
-          >
+          <a id="api-key-link" target="_blank" rel="noreferrer"></a>
         </p>
 
         <label for="model" data-i18n="modelLabel"></label>
@@ -63,13 +70,11 @@
           type="text"
           autocomplete="off"
           spellcheck="false"
-          placeholder="google/gemini-2.5-flash-lite"
         />
         <p class="hint">
-          <span data-i18n="modelHintBefore"></span>
-          <a href="https://openrouter.ai/models" target="_blank" rel="noreferrer"
-            >openrouter.ai/models</a
-          ><span data-i18n="modelHintAfter"></span><code>openai/gpt-4o-mini</code
+          <span id="model-hint-before"></span>
+          <a id="models-link" target="_blank" rel="noreferrer"></a
+          ><span data-i18n="modelHintAfter"></span><code id="model-example"></code
           ><span data-i18n="modelHintEnd"></span>
         </p>
 

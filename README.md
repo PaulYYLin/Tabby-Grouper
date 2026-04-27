@@ -1,11 +1,12 @@
 # Tabby Grouper
 
-使用 AI 自動分析並分組 Chrome 分頁的 MV3 擴充功能。透過 [OpenRouter](https://openrouter.ai) 呼叫你選擇的模型（Claude、Gemini、GPT 等），僅依分頁**標題**與**網域**把相關分頁放進同一個 Chrome 分頁群組；不讀取分頁內容，也不送出完整網址。
+使用 AI 自動分析並分組 Chrome 分頁的 MV3 擴充功能。支援 [OpenRouter](https://openrouter.ai)、[OpenAI](https://platform.openai.com)、[Google Gemini](https://aistudio.google.com) 三家供應商，呼叫你選擇的模型（Claude、Gemini、GPT 等），僅依分頁**標題**與**網域**把相關分頁放進同一個 Chrome 分頁群組；不讀取分頁內容，也不送出完整網址。
 
 ## 特色
 
 - 一鍵分組目前視窗內的分頁
-- 使用者自備 OpenRouter API Key，可選擇任意支援的模型
+- 使用者自備 API Key，支援 OpenRouter / OpenAI / Google Gemini，可任選模型
+- 每家供應商的 API Key 與模型各自記一份，切換不互相覆蓋
 - 支援自訂過濾規則（例如「只分組工作相關」、「只處理 YouTube 和 GitHub」）
 - **跨 session 任務記憶**：AI 分組會自動存成「任務」，關掉 Chrome 後再打開，popup 會詢問是否一鍵恢復昨天的研究主題
 - API Key 僅儲存於 `chrome.storage.sync`、任務快照僅儲存於 `chrome.storage.local`，皆不經過開發者伺服器
@@ -33,7 +34,7 @@ npm run zip
 ## 使用
 
 1. 安裝後點擊工具列的 Tabby Grouper 圖示 → 「開啟設定」
-2. 貼上你的 [OpenRouter API Key](https://openrouter.ai/keys)，可選填模型名稱
+2. 選擇 AI 供應商，貼上對應的 API Key（[OpenRouter](https://openrouter.ai/keys) / [OpenAI](https://platform.openai.com/api-keys) / [Google AI Studio](https://aistudio.google.com/apikey)），可選填模型名稱
 3. 回到 popup，視需要在文字框輸入過濾規則（上限 512 字），按「分組目前視窗的分頁」
 
 ### 任務記憶與恢復
@@ -61,7 +62,7 @@ npm run gen:icons    # 從來源產生各尺寸圖示
 src/
 ├── background.ts         # Service worker：接收訊息、呼叫 API、建立群組、註冊 tabGroups 監聽器
 ├── lib/
-│   ├── openrouter.ts     # OpenRouter 呼叫與輸出驗證
+│   ├── openrouter.ts     # AI 供應商（OpenRouter / OpenAI / Gemini）呼叫與輸出驗證
 │   ├── grouping.ts       # 共用 helpers：pickColor、isGroupableTab
 │   ├── tasks.ts          # Task 型別、storage key 常數、保留期/容量上限
 │   ├── storage.ts        # chrome.storage.local 讀寫、CAS lock、lazy prune
@@ -86,7 +87,7 @@ src/
 ## 隱私權
 
 見 [PRIVACY.md](./PRIVACY.md)。簡言之：
-- 送到 OpenRouter 的只有**分頁標題**與**網域（hostname）**（例如 `github.com`），**不會送出完整網址**（不含 path、query、hash）
+- 送到 AI 供應商（OpenRouter / OpenAI / Gemini）的只有**分頁標題**與**網域（hostname）**（例如 `github.com`），**不會送出完整網址**（不含 path、query、hash）
 - 任務快照（含完整網址、標題、favicon）僅儲存於本機 `chrome.storage.local`，**不會上傳**；封存超過 7 天自動清除，亦可手動刪除
 - 不讀取分頁內容、Cookie、表單、歷史、書籤等其他瀏覽器資料
 

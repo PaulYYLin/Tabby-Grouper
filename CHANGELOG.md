@@ -2,6 +2,18 @@
 
 本檔案記錄此專案的所有重要變更。格式參考 [Keep a Changelog](https://keepachangelog.com/zh-TW/1.1.0/)，版本號採 [Semantic Versioning](https://semver.org/lang/zh-TW/)。
 
+## [0.3.1] - 2026-04-26
+
+### 新增
+- 多 AI 供應商支援：OpenRouter、OpenAI、Google Gemini，皆走 OpenAI-compatible Chat Completions
+- 設定頁新增「AI 供應商」下拉選單，切換時自動更新 API Key 連結、預設模型、placeholder
+- API Key 與模型改為**每個供應商各自記一份**：切換供應商時自動載入該家先前儲存的設定，不互相覆蓋
+
+### 變更
+- `manifest.json` `host_permissions` 加入 `api.openai.com` 與 `generativelanguage.googleapis.com`
+- 錯誤訊息改為通用化：`OpenRouter 401: …` → `OpenRouter / OpenAI / Gemini 401: …`
+- 舊版單一 `apiKey` / `model` 設定首次讀取時會自動遷移為 OpenRouter 的紀錄
+
 ## [0.3.0] - 2026-04-26
 
 ### 新增

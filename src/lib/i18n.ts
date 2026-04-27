@@ -71,13 +71,16 @@ const dict = {
     relDays: (n: number) => `${n} 天前`,
 
     optionsTitle: 'Tabby Grouper 設定',
-    apiKeyLabel: 'OpenRouter API Key',
+    providerLabel: 'AI 供應商',
+    providerOpenRouter: 'OpenRouter',
+    providerOpenAI: 'OpenAI',
+    providerGemini: 'Google Gemini',
+    apiKeyLabel: 'API Key',
     apiKeyHintPrefix: '取得 API Key：',
     modelLabel: '模型（選填）',
-    modelHintBefore: '留空使用預設模型（google/gemini-2.5-flash-lite）。可用模型列表：',
+    modelHintBefore: (defaultModel: string) => `留空使用預設模型（${defaultModel}）。可用模型列表：`,
     modelHintAfter: '（例：',
     modelHintEnd: '）',
-    modelLinkText: 'openrouter.ai/models',
     saveBtn: '儲存',
     saved: '已儲存 ✓',
     langSectionLabel: '語言 / Language',
@@ -101,11 +104,12 @@ const dict = {
     errTooFewTabs: '可分組的分頁少於 2 個',
     errNoGroupsFound: 'AI 未找到可歸類的主題群組',
     errInstructionTooLong: (max: number) => `過濾規則過長（上限 ${max} 字），請縮短後再試`,
-    errAiEmpty: 'OpenRouter 回傳空內容',
+    errAiEmpty: 'AI 供應商回傳空內容',
     errAiTruncated: 'AI 回傳被截斷（分頁太多或模型輸出上限太小），請減少分頁或換模型再試',
     errAiInvalidJson: (msg: string) => `AI 回傳非合法 JSON：${msg}`,
     errBadShape: '回傳格式錯誤：預期 groups 陣列',
-    errOpenRouterStatus: (status: number, body: string) => `OpenRouter ${status}: ${body}`,
+    errAiStatus: (provider: string, status: number, body: string) =>
+      `${provider} ${status}: ${body}`,
 
     notifAddTitle: (taskName: string) => `加入「${taskName}」？`,
     notifRemoveTitle: (taskName: string) => `從「${taskName}」移除？`,
@@ -185,14 +189,17 @@ const dict = {
     relDays: (n: number) => `${n} day${n === 1 ? '' : 's'} ago`,
 
     optionsTitle: 'Tabby Grouper settings',
-    apiKeyLabel: 'OpenRouter API Key',
+    providerLabel: 'AI provider',
+    providerOpenRouter: 'OpenRouter',
+    providerOpenAI: 'OpenAI',
+    providerGemini: 'Google Gemini',
+    apiKeyLabel: 'API Key',
     apiKeyHintPrefix: 'Get an API Key: ',
     modelLabel: 'Model (optional)',
-    modelHintBefore:
-      'Leave blank to use the default model (google/gemini-2.5-flash-lite). Browse models: ',
+    modelHintBefore: (defaultModel: string) =>
+      `Leave blank to use the default model (${defaultModel}). Browse models: `,
     modelHintAfter: ' (e.g. ',
     modelHintEnd: ')',
-    modelLinkText: 'openrouter.ai/models',
     saveBtn: 'Save',
     saved: 'Saved ✓',
     langSectionLabel: 'Language / 語言',
@@ -218,12 +225,13 @@ const dict = {
     errNoGroupsFound: 'AI did not find any topic groups',
     errInstructionTooLong: (max: number) =>
       `Instruction too long (max ${max} chars). Please shorten and retry.`,
-    errAiEmpty: 'OpenRouter returned empty content',
+    errAiEmpty: 'AI provider returned empty content',
     errAiTruncated:
       'AI response was truncated (too many tabs or model output limit too small). Reduce tabs or switch model.',
     errAiInvalidJson: (msg: string) => `AI returned invalid JSON: ${msg}`,
     errBadShape: 'Bad response shape: expected groups array',
-    errOpenRouterStatus: (status: number, body: string) => `OpenRouter ${status}: ${body}`,
+    errAiStatus: (provider: string, status: number, body: string) =>
+      `${provider} ${status}: ${body}`,
 
     notifAddTitle: (taskName: string) => `Add to "${taskName}"?`,
     notifRemoveTitle: (taskName: string) => `Remove from "${taskName}"?`,
