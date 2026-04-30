@@ -400,6 +400,14 @@ button.ghost:hover:not(:disabled) {
 .task-dot--cyan { background: #06b6d4; }
 .task-dot--orange { background: #f97316; }
 
+.task-name-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
 .task-name {
   font-size: 13px;
   font-weight: 600;
@@ -407,6 +415,45 @@ button.ghost:hover:not(:disabled) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+button.icon-btn.task-name-edit {
+  width: 22px;
+  height: 22px;
+  padding: 4px;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.task-row:hover .task-name-edit,
+.task-name-edit:focus-visible {
+  opacity: 1;
+}
+
+.task-name-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  outline: none;
+}
+
+.task-name-input:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px var(--brand-ring);
+}
+
+button.icon-btn.task-name-save,
+button.icon-btn.task-name-cancel {
+  width: 22px;
+  height: 22px;
+  padding: 4px;
 }
 
 .task-tag {

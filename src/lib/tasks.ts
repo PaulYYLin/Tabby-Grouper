@@ -22,6 +22,7 @@ export interface Task {
 
 export const MAX_AI_SUMMARY_LEN = 200;
 export const MAX_TASK_SUMMARY_LEN = 500;
+export const MAX_TASK_NAME_LEN = 64;
 
 export interface TasksState {
   tasks: Record<string, Task>;

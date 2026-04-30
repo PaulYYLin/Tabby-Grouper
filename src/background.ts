@@ -40,6 +40,7 @@ import {
 } from './lib/storage';
 import {
   GROUP_MAP_KEY,
+  MAX_TASK_NAME_LEN,
   MAX_TASK_SUMMARY_LEN,
   TAB_GROUP_CACHE_KEY,
   newPendingAdditionId,
@@ -97,6 +98,8 @@ async function handleMessage(msg: Message): Promise<AnyResponse> {
       return handleDeleteTask(msg.taskId);
     case 'UPDATE_TASK_SUMMARY':
       return handleUpdateTaskSummary(msg.taskId, msg.summary);
+    case 'UPDATE_TASK_NAME':
+      return handleUpdateTaskName(msg.taskId, msg.name);
     case 'LIST_PENDING_ADDITIONS':
       return handleListPendingAdditions();
     case 'RESOLVE_PENDING_ADDITION':
@@ -322,6 +325,32 @@ async function handleUpdateTaskSummary(
     summary: trimmed || undefined,
     updatedAt: Date.now(),
   }));
+  return { ok: true };
+}
+
+async function handleUpdateTaskName(
+  taskId: string,
+  name: string,
+): Promise<SimpleResponse> {
+  const trimmed = name.trim().slice(0, MAX_TASK_NAME_LEN);
+  if (!trimmed) {
+    const t = tFor(await currentLang());
+    return { ok: false, error: t('errEmptyTaskName') };
+  }
+  await mutateTask(taskId, (t) => ({
+    ...t,
+    name: trimmed,
+    updatedAt: Date.now(),
+  }));
+  const map = await readGroupTaskMap();
+  const groupIdStr = Object.keys(map).find((gid) => map[Number(gid)] === taskId);
+  if (groupIdStr !== undefined) {
+    try {
+      await chrome.tabGroups.update(Number(groupIdStr), { title: trimmed });
+    } catch {
+      // group may have been removed before the update landed
+    }
+  }
   return { ok: true };
 }
 

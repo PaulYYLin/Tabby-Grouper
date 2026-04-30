@@ -9,7 +9,12 @@ import type {
   ResumeTaskResponse,
   SimpleResponse,
 } from '../lib/messages';
-import { PENDING_ADDITIONS_KEY, type PendingKind, type Task } from '../lib/tasks';
+import {
+  MAX_TASK_NAME_LEN,
+  PENDING_ADDITIONS_KEY,
+  type PendingKind,
+  type Task,
+} from '../lib/tasks';
 
 const btn = document.getElementById('group-btn') as HTMLButtonElement;
 const statusEl = document.getElementById('status') as HTMLParagraphElement;
@@ -170,10 +175,7 @@ function renderTask(task: Task): HTMLLIElement {
   dot.className = `task-dot task-dot--${task.color}`;
   head.appendChild(dot);
 
-  const name = document.createElement('span');
-  name.className = 'task-name';
-  name.textContent = task.name;
-  head.appendChild(name);
+  head.appendChild(renderName(task));
 
   if (task.status === 'archived') {
     const tag = document.createElement('span');
@@ -238,6 +240,104 @@ function renderTask(task: Task): HTMLLIElement {
   });
 
   return li;
+}
+
+function renderName(task: Task): HTMLElement {
+  const wrap = document.createElement('span');
+  wrap.className = 'task-name-wrap';
+
+  const name = document.createElement('span');
+  name.className = 'task-name';
+  name.textContent = task.name;
+  wrap.appendChild(name);
+
+  const editBtn = document.createElement('button');
+  editBtn.type = 'button';
+  editBtn.className = 'icon-btn task-name-edit';
+  editBtn.setAttribute('aria-label', t('taskNameEditLabel'));
+  editBtn.title = t('taskNameEditLabel');
+  editBtn.innerHTML = EDIT_ICON_SVG;
+  editBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    enterNameEdit(task, wrap);
+  });
+  wrap.appendChild(editBtn);
+
+  return wrap;
+}
+
+function enterNameEdit(task: Task, wrap: HTMLElement): void {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'task-name-input';
+  input.maxLength = MAX_TASK_NAME_LEN;
+  input.value = task.name;
+  input.addEventListener('click', (e) => e.stopPropagation());
+
+  const save = document.createElement('button');
+  save.type = 'button';
+  save.className = 'icon-btn icon-btn--primary task-name-save';
+  save.setAttribute('aria-label', t('taskNameSaveLabel'));
+  save.title = t('taskNameSaveTitle');
+  save.innerHTML = CHECK_ICON_SVG;
+
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'icon-btn task-name-cancel';
+  cancel.setAttribute('aria-label', t('taskNameCancelLabel'));
+  cancel.title = t('taskNameCancelTitle');
+  cancel.innerHTML = CLOSE_ICON_SVG;
+
+  const exitEdit = () => {
+    wrap.replaceWith(renderName(task));
+  };
+
+  const submit = async () => {
+    const next = input.value.trim();
+    if (!next || next === task.name) {
+      exitEdit();
+      return;
+    }
+    save.disabled = true;
+    cancel.disabled = true;
+    input.disabled = true;
+    const res = await send<SimpleResponse>({
+      type: 'UPDATE_TASK_NAME',
+      taskId: task.id,
+      name: next,
+    });
+    if (res.ok) {
+      void loadTasks();
+    } else {
+      save.disabled = false;
+      cancel.disabled = false;
+      input.disabled = false;
+      setStatus(tasksStatusEl, t('statusError')(res.error), 'error');
+    }
+  };
+
+  save.addEventListener('click', (e) => {
+    e.stopPropagation();
+    void submit();
+  });
+  cancel.addEventListener('click', (e) => {
+    e.stopPropagation();
+    exitEdit();
+  });
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      void submit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      exitEdit();
+    }
+  });
+
+  wrap.replaceChildren(input, save, cancel);
+  input.focus();
+  input.select();
 }
 
 function renderSummary(task: Task): HTMLElement {
