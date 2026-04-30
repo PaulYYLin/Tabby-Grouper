@@ -1,0 +1,10 @@
+{
+  "extension_name": {
+    "message": "Tabby Grouper",
+    "description": "Extension name shown in Chrome Web Store and browser UI"
+  },
+  "extension_description": {
+    "message": "Group your Chrome tabs by topic with AI. Bring your own OpenAI / OpenRouter / Gemini API key.",
+    "description": "Extension description shown in Chrome Web Store and chrome://extensions"
+  }
+}

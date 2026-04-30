@@ -1,0 +1,10 @@
+{
+  "extension_name": {
+    "message": "Tabby Grouper",
+    "description": "Extension name shown in Chrome Web Store and browser UI"
+  },
+  "extension_description": {
+    "message": "使用 AI 自動分析並分組 Chrome 分頁。自帶 OpenAI / OpenRouter / Gemini API key。",
+    "description": "Extension description shown in Chrome Web Store and chrome://extensions"
+  }
+}

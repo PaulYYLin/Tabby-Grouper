@@ -4,6 +4,16 @@
   "private": true,
   "type": "module",
   "description": "Group related Chrome tabs with AI",
+  "license": "MIT",
+  "author": "Paul Lin <paul.yy.lin@gmail.com>",
+  "homepage": "https://github.com/PaulYYLin/Tabby-Grouper",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PaulYYLin/Tabby-Grouper.git"
+  },
+  "bugs": {
+    "url": "https://github.com/PaulYYLin/Tabby-Grouper/issues"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -11,7 +21,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "gen:icons": "node scripts/generate-icons.mjs",
-    "zip": "cd dist && zip -r ../tabby-grouper.zip ."
+    "zip": "cd dist && zip -r ../tabby-grouper.zip . -x '*.map' '*.DS_Store'",
+    "pack": "npm run build && npm run zip"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.0.0-beta.25",

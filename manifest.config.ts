@@ -3,9 +3,10 @@ import pkg from './package.json' with { type: 'json' };
 
 export default defineManifest({
   manifest_version: 3,
-  name: 'Tabby Grouper',
+  default_locale: 'en',
+  name: '__MSG_extension_name__',
   version: pkg.version,
-  description: '使用 AI 自動分析並分組 Chrome 分頁',
+  description: '__MSG_extension_description__',
   permissions: ['tabs', 'tabGroups', 'storage', 'notifications'],
   host_permissions: [
     'https://openrouter.ai/*',
