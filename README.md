@@ -1,6 +1,6 @@
 # Tabby Grouper
 
-使用 AI 自動分析並分組 Chrome 分頁的 MV3 擴充功能。支援 [OpenRouter](https://openrouter.ai)、[OpenAI](https://platform.openai.com)、[Google Gemini](https://aistudio.google.com) 三家供應商，呼叫你選擇的模型（Claude、Gemini、GPT 等），僅依分頁**標題**與**網域**把相關分頁放進同一個 Chrome 分頁群組；不讀取分頁內容，也不送出完整網址。
+使用 AI 自動分析並分組 Chrome 分頁的 MV3 擴充功能。支援 [OpenRouter](https://openrouter.ai)、[OpenAI](https://platform.openai.com)、[Google Gemini](https://aistudio.google.com) 三家供應商，呼叫你選擇的模型（Claude、Gemini、GPT 等），僅依分頁**標題**、**網域**與**最多 80 字元的網址路徑前綴**把相關分頁放進同一個 Chrome 分頁群組；不讀取分頁內容，也不送出 query string 與 fragment。
 
 ## 特色
 
@@ -87,7 +87,7 @@ src/
 ## 隱私權
 
 見 [PRIVACY.md](./PRIVACY.md)。簡言之：
-- 送到 AI 供應商（OpenRouter / OpenAI / Gemini）的只有**分頁標題**與**網域（hostname）**（例如 `github.com`），**不會送出完整網址**（不含 path、query、hash）
+- 送到 AI 供應商（OpenRouter / OpenAI / Gemini）的是**分頁標題**、**網域（hostname）**與**最多 80 字元的網址路徑前綴**（例如 `github.com/anthropics/courses/co…`）；**query string 與 fragment（hash）一律去除、不會送出**
 - 任務快照（含完整網址、標題、favicon）僅儲存於本機 `chrome.storage.local`，**不會上傳**；封存超過 7 天自動清除，亦可手動刪除
 - 不讀取分頁內容、Cookie、表單、歷史、書籤等其他瀏覽器資料
 
