@@ -25,6 +25,23 @@ We **do not** collect your browsing history, bookmarks, cookies, form data, pass
 - **Tab data sent to the AI provider**: when you press the Group button, the Extension transmits via HTTPS the **title** of each tab plus its **hostname and up to 80 characters of the URL path** (e.g. `github.com/anthropics/courses/co…`) to the AI provider you selected (OpenRouter `https://openrouter.ai`, OpenAI `https://api.openai.com`, or Google Gemini `https://generativelanguage.googleapis.com`) for topic classification. **Query strings (`?key=value`) and URL fragments (`#section`) are always stripped before transmission and are never sent**; full URLs never leave your device. After the request completes, **the Extension does not store this data anywhere**, and it is **never sent to the developer or any other third party**.
 - **API key and model name**: stored only in `chrome.storage.sync` (synchronized through your Google account, encrypted by Chrome). They are **never** sent to the developer or any third party — only to the AI provider you selected.
 
+### Optional feature: personalised memory (off by default)
+
+The options page contains an opt-in toggle named **"Personalised memory"**. **It is off by default**; the rest of this section only applies if you turn it on.
+
+When enabled:
+
+- The Extension keeps a local record (in `chrome.storage.local`, on your device only — never synced) of (a) group names you have **typed yourself** when renaming a group, (b) group names the AI generated that you **kept without renaming**, and (c) the **instructions** you have typed into the popup's filter box. Both lists are capped to a small recent window.
+- After enough samples accumulate, the Extension makes an **additional** call to the AI provider you selected, sending those recorded names and instructions, and asks the provider to summarise your style into a short hint.
+- That short hint is then included in subsequent grouping requests so the AI can match your naming style and granularity.
+
+What this means for your data:
+
+- The names you have typed and the instructions you have written are sent to **the same AI provider you already use for grouping**, over the same HTTPS endpoint. No new third party is introduced.
+- These calls **incur additional usage** on your AI provider account (typically a small extra request every few groupings).
+- The samples and the distilled hint live only in `chrome.storage.local` on your device. They are not synced through your Google account and are never sent to the Extension's developer.
+- Turning the toggle off stops both the recording and the additional summarisation calls immediately. Existing on-device data is preserved; uninstalling the Extension or clearing browser data removes it.
+
 ### Third-party services
 
 The Extension transmits tab titles, hostnames, and short URL path prefixes (as described above) to the AI provider you selected. The end-to-end flow is governed by that provider's privacy policy:
@@ -59,6 +76,7 @@ You are responsible for obtaining and providing the corresponding API key. The E
   - You can manually delete any task at any time from the Tasks tab.
   - If a task is archived (e.g. when the group is closed), it is automatically deleted after 7 days by default.
   - Uninstalling the Extension causes Chrome to delete all task data along with it.
+- **Personalised memory data (only if you opt in)**: the recorded names, instructions, and the distilled hint are kept in `chrome.storage.local` (**local only**) until you disable the toggle and clear the data, or uninstall the Extension.
 - **API keys (one per provider)**: kept in `chrome.storage.sync` until you clear the field or uninstall the Extension.
 
 ### Your rights
@@ -97,6 +115,23 @@ Tabby Grouper（下稱「本擴充功能」）由 paul.yy.lin@gmail.com 開發�
 - **送往 AI 供應商的分頁資料**：當你按下分組按鈕時，本擴充功能會透過 HTTPS 傳送每個分頁的**標題**，加上**網域與最多 80 字元的網址路徑前綴**（例如 `github.com/anthropics/courses/co…`）到你選擇的 AI 供應商端點進行主題分類（OpenRouter `https://openrouter.ai`、OpenAI `https://api.openai.com`、或 Google Gemini `https://generativelanguage.googleapis.com`）。**Query string（`?key=value`）與網址 fragment（`#section`）一律會在傳送前移除，絕不送出**；完整網址不會離開你的裝置。請求完成後，這些資料**不會被本擴充功能儲存**於任何地方，也不會被傳送到我們或其他第三方的伺服器。
 - **API Key 與模型名稱**：僅儲存於 Chrome 的 `chrome.storage.sync`（跟隨你 Google 帳號同步，由 Chrome 加密），**不會**傳送給本擴充功能的開發者或任何第三方，僅用於向你選擇的 AI 供應商發送請求。
 
+### 選用功能：個人化記憶（預設關閉）
+
+設定頁有一個名為 **「個人化記憶」** 的開關。**此功能預設為關閉**；本節的內容僅在你主動啟用後才適用。
+
+啟用後：
+
+- 本擴充功能會在本機（`chrome.storage.local`，不同步、僅存於本機）記錄三類字串：(a) 你**親自重新命名**過的群組名稱、(b) 你**沒有改寫、直接沿用**的 AI 命名、(c) 你在 popup 過濾規則欄位輸入過的**指令文字**。每一類都只保留近期固定數量的樣本。
+- 當樣本累積到一定數量後，本擴充功能會**額外**呼叫你選擇的 AI 供應商一次，將上述名稱與指令送出，請供應商把你的命名與指令風格摘要成一段提示。
+- 這段提示之後會被附加到日後的分組請求裡，讓 AI 更貼近你的命名風格與分組粒度。
+
+對你的資料的影響：
+
+- 你親自輸入的名稱與指令會被送往**你既有用於分組的同一家 AI 供應商**，使用同一個 HTTPS 端點，不會引入任何新的第三方。
+- 該蒸餾呼叫會在你的 AI 供應商帳戶**產生額外用量**（通常是每幾次分組多一次小型請求）。
+- 樣本與蒸餾後的提示僅儲存於本機 `chrome.storage.local`，不會跟著 Google 帳號同步，也不會傳送到本擴充功能開發者。
+- 把開關關掉後，錄樣與蒸餾呼叫會立刻停止；本機既有資料仍會保留，可透過解除安裝或清除瀏覽器資料移除。
+
 ### 第三方服務
 
 本擴充功能會將分頁標題、網域與短路徑前綴（如上述）傳送至你選擇的 AI 供應商。整個流程受該供應商的隱私權政策規範：
@@ -131,6 +166,7 @@ Tabby Grouper（下稱「本擴充功能」）由 paul.yy.lin@gmail.com 開發�
   - 你可以在「任務」分頁手動刪除任一筆任務。
   - 任務若被封存（例如群組關閉），預設保留 7 天後自動清除。
   - 解除安裝本擴充功能時，所有任務資料將由 Chrome 一併清除。
+- **個人化記憶資料（僅在你啟用時）**：所記錄的名稱、指令與蒸餾後的提示保存在 `chrome.storage.local`（**僅本機**），直到你關閉開關並清除資料、或移除本擴充功能為止。
 - **API Key（每家供應商各一份）**：保留於 `chrome.storage.sync`，直到你清空欄位或移除本擴充功能。
 
 ### 你的權利

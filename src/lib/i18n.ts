@@ -105,6 +105,12 @@ const dict = {
     removePolicyHint:
       '當你把已記錄的分頁拖出群組時，要不要從該任務的分頁清單移除。',
 
+    userPrefsLabel: '個人化記憶',
+    userPrefsHint: '預設關閉。啟用後會自動學習你的命名與指令風格，並產生少量額外 AI 用量。',
+    userPrefsTooltipIcon: '說明',
+    userPrefsTooltip:
+      '啟用後，Tabby 會在本機記錄你過去親自命名群組的字串、AI 命名你沿用的字串，以及你下過的指令；累積足夠樣本後，會用你目前的 AI 供應商把這些樣本摘要成一段提示，並在下次自動分組時注入給 AI 參考。\n\n注意：摘要呼叫會產生額外的 AI 用量（依供應商計費）。樣本與摘要僅儲存在本機 chrome.storage.local，不同步到雲端。\n\n停用後會立刻停止錄樣與摘要呼叫；已存在的本機資料仍會保留。',
+
     errNoApiKey: '尚未設定 API Key，請先打開設定頁',
     errTooFewTabs: '可分組的分頁少於 2 個',
     errNoGroupsFound: 'AI 未找到可歸類的主題群組',
@@ -231,6 +237,12 @@ const dict = {
     removePolicyHint:
       "Whether to remove the tab from the task's tab list when you drag a tracked tab out of its group.",
 
+    userPrefsLabel: 'Personalised memory',
+    userPrefsHint: 'Off by default. When enabled, auto-learns your naming and instruction style and adds a small amount of AI usage.',
+    userPrefsTooltipIcon: 'Help',
+    userPrefsTooltip:
+      'When enabled, Tabby keeps a local record of group names you have typed yourself, AI-generated names you have kept, and instructions you have written. Once enough samples accumulate, your configured AI provider is asked to summarise them into a short hint that is injected into the next auto-grouping run.\n\nNote: the summarisation call uses additional AI usage (billed by your provider). Samples and the distilled summary live only in chrome.storage.local on this device and are never synced to the cloud.\n\nDisabling stops sample recording and summarisation calls immediately. Existing on-device data is preserved.',
+
     errNoApiKey: 'API Key not set. Please open the settings page first.',
     errTooFewTabs: 'Fewer than 2 groupable tabs',
     errNoGroupsFound: 'AI did not find any topic groups',
@@ -319,5 +331,17 @@ export function applyDomI18n(t: ReturnType<typeof tFor>, root: ParentNode = docu
     if (typeof v === 'string' && 'placeholder' in el) {
       (el as HTMLInputElement | HTMLTextAreaElement).placeholder = v;
     }
+  });
+  root.querySelectorAll<HTMLElement>('[data-i18n-title]').forEach((el) => {
+    const key = el.dataset.i18nTitle as Key | undefined;
+    if (!key) return;
+    const v = t(key);
+    if (typeof v === 'string') el.title = v;
+  });
+  root.querySelectorAll<HTMLElement>('[data-i18n-aria-label]').forEach((el) => {
+    const key = el.dataset.i18nAriaLabel as Key | undefined;
+    if (!key) return;
+    const v = t(key);
+    if (typeof v === 'string') el.setAttribute('aria-label', v);
   });
 }

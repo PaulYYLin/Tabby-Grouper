@@ -94,6 +94,26 @@
         </select>
         <p class="hint" data-i18n="removePolicyHint"></p>
 
+        <div class="toggle-row">
+          <label class="toggle-label" for="user-prefs-enabled">
+            <input
+              id="user-prefs-enabled"
+              name="userPrefsEnabled"
+              type="checkbox"
+            />
+            <span data-i18n="userPrefsLabel"></span>
+          </label>
+          <span
+            class="info-icon"
+            tabindex="0"
+            role="img"
+            data-i18n-title="userPrefsTooltip"
+            data-i18n-aria-label="userPrefsTooltipIcon"
+            >ⓘ</span
+          >
+        </div>
+        <p class="hint" data-i18n="userPrefsHint"></p>
+
         <button type="submit" data-i18n="saveBtn"></button>
         <p id="save-status" class="status"></p>
       </form>

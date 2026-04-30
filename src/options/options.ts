@@ -26,6 +26,9 @@ const modelsLink = document.getElementById('models-link') as HTMLAnchorElement;
 const modelExample = document.getElementById('model-example') as HTMLElement;
 const addPolicySelect = document.getElementById('add-policy') as HTMLSelectElement;
 const removePolicySelect = document.getElementById('remove-policy') as HTMLSelectElement;
+const userPrefsEnabledInput = document.getElementById(
+  'user-prefs-enabled',
+) as HTMLInputElement;
 const saveStatus = document.getElementById('save-status') as HTMLParagraphElement;
 const langToggle = document.getElementById('lang-toggle') as HTMLDivElement;
 const langButtons = langToggle.querySelectorAll<HTMLButtonElement>('.lang-opt');
@@ -40,6 +43,7 @@ const stored = (await chrome.storage.sync.get([
   'models',
   'addDraggedTabPolicy',
   'removeDraggedTabPolicy',
+  'userPrefsEnabled',
   'lang',
 ])) as {
   provider?: unknown;
@@ -49,6 +53,7 @@ const stored = (await chrome.storage.sync.get([
   models?: unknown;
   addDraggedTabPolicy?: unknown;
   removeDraggedTabPolicy?: unknown;
+  userPrefsEnabled?: unknown;
   lang?: unknown;
 };
 
@@ -64,6 +69,7 @@ apiKeyInput.value = apiKeys[provider];
 modelInput.value = models[provider];
 addPolicySelect.value = coercePolicy(stored.addDraggedTabPolicy);
 removePolicySelect.value = coercePolicy(stored.removeDraggedTabPolicy);
+userPrefsEnabledInput.checked = stored.userPrefsEnabled === true;
 
 let lang: Lang = await getLang();
 let t = tFor(lang);
@@ -126,6 +132,7 @@ form.addEventListener('submit', async (e) => {
     models,
     addDraggedTabPolicy: addPolicySelect.value as DraggedTabPolicy,
     removeDraggedTabPolicy: removePolicySelect.value as DraggedTabPolicy,
+    userPrefsEnabled: userPrefsEnabledInput.checked,
   });
   await chrome.storage.sync.remove(['apiKey', 'model']);
   saveStatus.textContent = t('saved');

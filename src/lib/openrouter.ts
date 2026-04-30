@@ -217,6 +217,7 @@ export async function reclassifyTabs(
   instruction?: string,
   lang: Lang = 'zh',
   provider: Provider = DEFAULT_PROVIDER,
+  userHints?: string,
 ): Promise<ReclassifyResult> {
   const t = tFor(lang);
   if (instruction && instruction.length > MAX_INSTRUCTION_LEN) {
@@ -231,7 +232,13 @@ export async function reclassifyTabs(
   const validIds = new Set<number>([...memberIdToKey.keys(), ...freeIdSet]);
   const existingKeys = new Set(existing.map((g) => g.groupKey));
 
-  const userMessage = buildReclassifyUserMessage(existing, freeTabs, instruction?.trim() || undefined, lang);
+  const userMessage = buildReclassifyUserMessage(
+    existing,
+    freeTabs,
+    instruction?.trim() || undefined,
+    lang,
+    userHints?.trim() || undefined,
+  );
   const systemPrompt = lang === 'zh' ? SYSTEM_PROMPT_RECLASSIFY_ZH : SYSTEM_PROMPT_RECLASSIFY_EN;
 
   const res = await fetch(PROVIDERS[provider].endpoint, {
@@ -326,9 +333,14 @@ function buildReclassifyUserMessage(
   freeTabs: TabInfo[],
   instruction: string | undefined,
   lang: Lang,
+  userHints: string | undefined,
 ): string {
   const isZh = lang === 'zh';
   const lines: string[] = [];
+
+  if (userHints) {
+    lines.push(buildUserHintsBlock(userHints, lang));
+  }
 
   if (instruction) {
     lines.push(
@@ -379,6 +391,7 @@ export async function classifyTabs(
   instruction?: string,
   lang: Lang = 'zh',
   provider: Provider = DEFAULT_PROVIDER,
+  userHints?: string,
 ): Promise<GroupResult[]> {
   const t = tFor(lang);
   if (instruction && instruction.length > MAX_INSTRUCTION_LEN) {
@@ -389,7 +402,12 @@ export async function classifyTabs(
     .map((tab) => `[${tab.id}] ${truncate(tab.title, MAX_TITLE_LEN)} — ${urlForPrompt(tab.url)}`)
     .join('\n');
 
-  const userMessage = buildUserMessage(tabList, instruction?.trim() || undefined, lang);
+  const userMessage = buildUserMessage(
+    tabList,
+    instruction?.trim() || undefined,
+    lang,
+    userHints?.trim() || undefined,
+  );
   const systemPrompt = lang === 'zh' ? SYSTEM_PROMPT_ZH : SYSTEM_PROMPT_EN;
 
   const res = await fetch(PROVIDERS[provider].endpoint, {
@@ -456,16 +474,37 @@ function buildUserMessage(
   tabList: string,
   instruction: string | undefined,
   lang: Lang,
+  userHints: string | undefined,
 ): string {
-  if (lang === 'en') return buildUserMessageEn(tabList, instruction);
-  return buildUserMessageZh(tabList, instruction);
+  if (lang === 'en') return buildUserMessageEn(tabList, instruction, userHints);
+  return buildUserMessageZh(tabList, instruction, userHints);
 }
 
-function buildUserMessageZh(tabList: string, instruction: string | undefined): string {
+function buildUserHintsBlock(hints: string, lang: Lang): string {
+  if (lang === 'en') {
+    return `<user_naming_preferences>
+${hints}
+(Background reference learned from past sessions. Use as a soft hint for naming style and granularity ONLY when it does not conflict with the user's current instruction or the system's hard rules.)
+</user_naming_preferences>
+`;
+  }
+  return `<user_naming_preferences>
+${hints}
+（這是從過往使用記錄學到的偏好參考，僅在不違反使用者本次指令與系統硬規則的前提下，作為命名風格與分組粒度的輕度提示。）
+</user_naming_preferences>
+`;
+}
+
+function buildUserMessageZh(
+  tabList: string,
+  instruction: string | undefined,
+  userHints: string | undefined,
+): string {
   const tabBlock = `分頁列表：\n${tabList}`;
+  const hintsBlock = userHints ? `${buildUserHintsBlock(userHints, 'zh')}\n` : '';
 
   if (instruction) {
-    return `使用者指令（最高優先權，覆蓋所有預設行為）：
+    return `${hintsBlock}使用者指令（最高優先權，覆蓋所有預設行為）：
 """
 ${instruction}
 """
@@ -482,7 +521,7 @@ ${instruction}
 ${tabBlock}`;
   }
 
-  return `請依主題相似度把下列分頁分組：
+  return `${hintsBlock}請依主題相似度把下列分頁分組：
 - groupName 用 2-6 字的中文主題名
 - summary 用一句中文（最多 60 字）總結「這組分頁的主題類型」，例如「前台案件詳情頁的規格與 API 任務」「Next.js 快取策略研究」；**不要**用「正在…」「在查看…」開頭，也不要逐一列出分頁
 - 無法明確歸類的分頁不要納入結果
@@ -490,11 +529,16 @@ ${tabBlock}`;
 ${tabBlock}`;
 }
 
-function buildUserMessageEn(tabList: string, instruction: string | undefined): string {
+function buildUserMessageEn(
+  tabList: string,
+  instruction: string | undefined,
+  userHints: string | undefined,
+): string {
   const tabBlock = `Tab list:\n${tabList}`;
+  const hintsBlock = userHints ? `${buildUserHintsBlock(userHints, 'en')}\n` : '';
 
   if (instruction) {
-    return `User instruction (highest priority, overrides all defaults):
+    return `${hintsBlock}User instruction (highest priority, overrides all defaults):
 """
 ${instruction}
 """
@@ -511,7 +555,7 @@ Execution rules:
 ${tabBlock}`;
   }
 
-  return `Group the following tabs by topic similarity. **Output language is locked to English** — even if tab titles below are in Chinese / Japanese / another language, you must translate or paraphrase the topic into English for both groupName and summary.
+  return `${hintsBlock}Group the following tabs by topic similarity. **Output language is locked to English** — even if tab titles below are in Chinese / Japanese / another language, you must translate or paraphrase the topic into English for both groupName and summary.
 
 - groupName: 2-4 English words naming the topic
 - summary: one English sentence (max 80 chars) describing the **topical category** of this group, e.g. "Spec and API tasks for the case-detail page", "Caching strategy research for Next.js". **Do not** start with "Currently..." or "Looking at..."; do not list tabs one by one.

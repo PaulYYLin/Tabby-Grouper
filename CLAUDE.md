@@ -32,8 +32,8 @@ UI ↔ background communication is a single `chrome.runtime.sendMessage` channel
 
 | Bucket | What lives there | Why |
 |---|---|---|
-| `chrome.storage.sync` | `provider`, `apiKeys` (per-provider record), `models` (per-provider record), `lang`, `addDraggedTabPolicy`, `removeDraggedTabPolicy` | User settings, syncs across devices |
-| `chrome.storage.local` | `tabby:tasks:v1` — the `TasksState` (grouping snapshots) | Survives Chrome restarts; never sent to network |
+| `chrome.storage.sync` | `provider`, `apiKeys` (per-provider record), `models` (per-provider record), `lang`, `addDraggedTabPolicy`, `removeDraggedTabPolicy`, `userPrefsEnabled` (opt-in toggle for personalised memory, defaults to off) | User settings, syncs across devices |
+| `chrome.storage.local` | `tabby:tasks:v1` — the `TasksState` (grouping snapshots); `tabby:userPrefs:v1` — auto-learned naming/instruction samples + LLM-distilled hint cache | Survives Chrome restarts; never synced across devices |
 | `chrome.storage.session` | `tabby:groupTaskMap`, `tabby:tabGroupCache`, `tabby:pendingResume`, `tabby:pendingAdditions` | Ephemeral caches rebuilt on `onStartup` / `onInstalled` |
 
 Legacy single-key `apiKey` / `model` are coerced into the per-provider records by `coerceProviderRecord` in `src/lib/openrouter.ts` — keep that path when touching settings code.
@@ -71,6 +71,14 @@ Output validation rules that every code path must keep:
 - `MAX_INSTRUCTION_LEN` (512) is enforced both in the textarea (`maxlength`) and at the function entry — keep both in sync.
 
 Prompt language: system + user prompts have **hard rules** locking `groupName` / `summary` to the UI language (`zh` → 繁體中文, `en` → English) regardless of what the user instruction says. If you edit prompts, do not weaken these locks — the UI assumes them.
+
+### User preferences (auto-learned, opt-in)
+
+**Off by default.** Gated by the `userPrefsEnabled` flag in `chrome.storage.sync`; `isUserPrefsEnabled()` in `src/lib/userPrefs.ts` returns `true` only when that key is the literal `true`. Every entry point in `background.ts` (`handleGroupTabs` reads + records, `handleUpdateTaskName` records) MUST be guarded by this flag — privacy disclosure depends on the feature being inert when the user has not opted in. PRIVACY.md describes the flag behaviour in user-facing language; keep that section in sync.
+
+When enabled, `src/lib/userPrefs.ts` collects three sample buckets in `tabby:userPrefs:v1` (local only): `userNames` (strong signal — names the user typed via rename), `aiNames` (weak signal — names the AI produced and the user kept), `instructions`. Each is a capped recency buffer.
+
+A separate LLM call distills these into a ≤ 600-char `distilled` hint, gated by `MIN_SAMPLES_TO_DISTILL` and `REDISTILL_THRESHOLD`. The distill call is **fire-and-forget after grouping** in `handleGroupTabs` — failures are swallowed so they never block grouping. The cached hint is read synchronously into the next grouping prompt as a `<user_naming_preferences>` block, explicitly labelled as a soft hint subordinate to the current instruction and the system's hard rules.
 
 ### i18n
 

@@ -193,3 +193,46 @@ button:hover {
 .lang-opt.is-active:hover {
   background: var(--brand-hover);
 }
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.toggle-label input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  font-size: 14px;
+  color: var(--text-muted);
+  border-radius: 50%;
+  cursor: help;
+  user-select: none;
+}
+
+.info-icon:hover,
+.info-icon:focus {
+  color: var(--brand);
+  background: var(--surface-alt);
+  outline: none;
+}

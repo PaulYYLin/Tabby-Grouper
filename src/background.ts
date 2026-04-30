@@ -17,6 +17,14 @@ import {
 } from './lib/openrouter';
 import { resumeTask } from './lib/resume';
 import {
+  getPromptHints,
+  isUserPrefsEnabled,
+  maybeRefreshDistill,
+  recordAiName,
+  recordInstruction,
+  recordUserName,
+} from './lib/userPrefs';
+import {
   addPendingAddition,
   addTabToTask,
   addTask,
@@ -183,6 +191,9 @@ async function handleGroupTabs(instruction?: string): Promise<GroupTabsResponse>
     return { ok: false, error: t('errTooFewTabs') };
   }
 
+  const prefsEnabled = await isUserPrefsEnabled();
+  const userHints = prefsEnabled ? await getPromptHints(lang) : '';
+
   const result = await reclassifyTabs(
     apiKey,
     model || PROVIDERS[provider].defaultModel,
@@ -191,6 +202,7 @@ async function handleGroupTabs(instruction?: string): Promise<GroupTabsResponse>
     instruction,
     lang,
     provider,
+    userHints || undefined,
   );
 
   const tabById = new Map<number, chrome.tabs.Tab>();
@@ -272,6 +284,19 @@ async function handleGroupTabs(instruction?: string): Promise<GroupTabsResponse>
     return { ok: false, error: t('errNoGroupsFound') };
   }
 
+  if (prefsEnabled) {
+    if (instruction && instruction.trim()) {
+      await recordInstruction(instruction);
+    }
+    for (const g of result.newGroups) await recordAiName(g.groupName);
+    void maybeRefreshDistill(
+      apiKey,
+      model || PROVIDERS[provider].defaultModel,
+      provider,
+      lang,
+    );
+  }
+
   return {
     ok: true,
     groupCount: result.newGroups.length + touchedGroupCount,
@@ -350,6 +375,9 @@ async function handleUpdateTaskName(
     } catch {
       // group may have been removed before the update landed
     }
+  }
+  if (await isUserPrefsEnabled()) {
+    await recordUserName(trimmed);
   }
   return { ok: true };
 }
