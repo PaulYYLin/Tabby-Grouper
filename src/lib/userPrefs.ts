@@ -1,5 +1,5 @@
 import type { Lang } from './i18n';
-import { PROVIDERS, type Provider } from './openrouter';
+import { PROVIDERS, normalizeModelForProvider, type Provider } from './openrouter';
 
 export interface UserPrefs {
   schemaVersion: 1;
@@ -200,7 +200,7 @@ export async function distillUserPrefs(
     method: 'POST',
     headers,
     body: JSON.stringify({
-      model,
+      model: normalizeModelForProvider(model, provider),
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },

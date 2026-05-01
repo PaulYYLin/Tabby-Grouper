@@ -81,6 +81,15 @@ export function isProvider(v: unknown): v is Provider {
   return v === 'openrouter' || v === 'openai' || v === 'gemini';
 }
 
+// OpenRouter expects "vendor/model" (e.g. "openai/gpt-4o-mini"); OpenAI and
+// Gemini's OpenAI-compatible endpoint reject that prefix. Strip it so users
+// who carry an OpenRouter-style name across providers don't get 404s.
+export function normalizeModelForProvider(model: string, provider: Provider): string {
+  if (provider === 'openrouter') return model;
+  const slash = model.indexOf('/');
+  return slash === -1 ? model : model.slice(slash + 1);
+}
+
 export type ProviderRecord = Record<Provider, string>;
 
 export function emptyProviderRecord(): ProviderRecord {
@@ -245,7 +254,7 @@ export async function reclassifyTabs(
     method: 'POST',
     headers: buildHeaders(provider, apiKey),
     body: JSON.stringify({
-      model,
+      model: normalizeModelForProvider(model, provider),
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },
@@ -414,7 +423,7 @@ export async function classifyTabs(
     method: 'POST',
     headers: buildHeaders(provider, apiKey),
     body: JSON.stringify({
-      model,
+      model: normalizeModelForProvider(model, provider),
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },

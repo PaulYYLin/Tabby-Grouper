@@ -86,6 +86,7 @@ const dict = {
     modelHintBefore: (defaultModel: string) => `留空使用預設模型（${defaultModel}）。可用模型列表：`,
     modelHintAfter: '（例：',
     modelHintEnd: '）',
+    modelFormatHintNoVendor: 'OpenAI 與 Gemini 不需要「vendor/」前綴；若填入帶斜線的名稱，送出請求時會自動剝除。',
     saveBtn: '儲存',
     saved: '已儲存 ✓',
     langSectionLabel: '語言 / Language',
@@ -217,6 +218,8 @@ const dict = {
       `Leave blank to use the default model (${defaultModel}). Browse models: `,
     modelHintAfter: ' (e.g. ',
     modelHintEnd: ')',
+    modelFormatHintNoVendor:
+      "OpenAI and Gemini don't need a \"vendor/\" prefix — any prefix is stripped automatically when the request is sent.",
     saveBtn: 'Save',
     saved: 'Saved ✓',
     langSectionLabel: 'Language / 語言',

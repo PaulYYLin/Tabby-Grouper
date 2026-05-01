@@ -24,6 +24,7 @@ const modelInput = document.getElementById('model') as HTMLInputElement;
 const modelHintBefore = document.getElementById('model-hint-before') as HTMLSpanElement;
 const modelsLink = document.getElementById('models-link') as HTMLAnchorElement;
 const modelExample = document.getElementById('model-example') as HTMLElement;
+const modelFormatHint = document.getElementById('model-format-hint') as HTMLParagraphElement;
 const addPolicySelect = document.getElementById('add-policy') as HTMLSelectElement;
 const removePolicySelect = document.getElementById('remove-policy') as HTMLSelectElement;
 const userPrefsEnabledInput = document.getElementById(
@@ -84,6 +85,7 @@ function applyProviderHints(): void {
   modelsLink.href = info.modelsUrl;
   modelsLink.textContent = info.modelsLinkText;
   modelExample.textContent = info.exampleModel;
+  modelFormatHint.hidden = provider === 'openrouter';
 }
 
 function applyI18n(): void {
