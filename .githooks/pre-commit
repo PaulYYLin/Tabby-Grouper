@@ -1,0 +1,16 @@
+#!/bin/sh
+# Run TypeScript type-check before allowing the commit.
+# Tests + build are intentionally left to CI (.github/workflows/ci.yml)
+# so commits stay fast.
+
+# GUI git clients (VSCode, Sourcetree, GitHub Desktop) start with a minimal
+# PATH that doesn't include Homebrew. Make sure npm is reachable.
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+if ! command -v npm >/dev/null 2>&1; then
+  echo "pre-commit: npm not found in PATH — skipping type-check." >&2
+  echo "  PATH=$PATH" >&2
+  exit 0
+fi
+
+npm run --silent type-check

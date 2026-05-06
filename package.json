@@ -18,6 +18,7 @@
     "dev": "vite",
     "build": "vite build",
     "type-check": "tsc --noEmit",
+    "prepare": "git config core.hooksPath .githooks || true",
     "test": "vitest run",
     "test:watch": "vitest",
     "gen:icons": "node scripts/generate-icons.mjs",
