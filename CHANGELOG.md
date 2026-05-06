@@ -2,6 +2,26 @@
 
 本檔案記錄此專案的所有重要變更。格式參考 [Keep a Changelog](https://keepachangelog.com/zh-TW/1.1.0/)，版本號採 [Semantic Versioning](https://semver.org/lang/zh-TW/)。
 
+## [1.0.0] - 2026-05-05
+
+### 新增
+- 設定頁新增「個人化記憶」管理區塊：可檢視 / 編輯 AI 蒸餾後的提示文字、刪除個別 user 命名 / AI 命名 / 指令樣本，或批次清除單一類別與全部記憶資料
+- 個人化記憶新增「暫停／繼續自動學習」開關，可在不關閉整個功能的前提下停止錄樣與蒸餾
+- 設定頁可手動觸發「立即重新蒸餾」，不必等樣本累積到門檻
+- popup「任務」分頁可直接重新命名任務，會同步寫回 Chrome 群組標題
+- 設定頁 API Key 欄位新增即時格式驗證與初次設定流程的引導 UI（OpenRouter / OpenAI / Gemini 各自 prefix 規則）
+- 設定頁「個人化記憶」開關旁新增 ⓘ tooltip，hover / 鍵盤聚焦會顯示用途與額外 AI 用量說明
+
+### 變更
+- `Message` 型別新增 `UPDATE_TASK_NAME`、`GET_MEMORY`、`UPDATE_DISTILLED`、`REMOVE_MEMORY_SAMPLE`、`CLEAR_MEMORY_SAMPLES`、`CLEAR_MEMORY_ALL`、`RUN_AUTO_LEARN` variant，搭配新增的記憶管理與重新命名功能
+- 加入 GitHub Actions：CI（PR 自動跑 type-check + test）與 Release（推 `vX.Y.Z` tag 後自動上傳到 Chrome Web Store 並建立 GitHub Release）
+- 加入本地 pre-commit hook 自動執行 `tsc --noEmit`，避免型別錯誤被推上去
+
+## [0.4.1] - 2026-05-01
+
+### 修正
+- 修正 OpenAI 與 Gemini 不接受 `vendor/model` 前綴格式（例如 `openai/gpt-4o-mini`）導致 404 的問題；現在僅 OpenRouter 保留前綴，OpenAI / Gemini 會自動移除 `vendor/` 前綴後再送出請求
+
 ## [0.4.0] - 2026-04-30
 
 ### 新增
