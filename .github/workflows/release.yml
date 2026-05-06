@@ -1,0 +1,106 @@
+name: Release to Chrome Web Store
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag is on main
+        run: |
+          if ! git branch -r --contains "$GITHUB_SHA" | grep -qE '^\s*origin/main$'; then
+            echo "::error::Tag ${GITHUB_REF_NAME} is not on origin/main. Refusing to release."
+            exit 1
+          fi
+
+      - name: Verify tag matches package.json version
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag v${TAG_VERSION} does not match package.json version ${PKG_VERSION}."
+            exit 1
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Zip
+        run: npm run zip
+
+      - name: Upload & submit to Chrome Web Store
+        env:
+          EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # 1. Exchange refresh token for an access token (Google OAuth)
+          ACCESS_TOKEN=$(curl -sS -X POST -f \
+            -d "client_id=${CLIENT_ID}" \
+            -d "client_secret=${CLIENT_SECRET}" \
+            -d "refresh_token=${REFRESH_TOKEN}" \
+            -d "grant_type=refresh_token" \
+            https://oauth2.googleapis.com/token | jq -r .access_token)
+
+          if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
+            echo "::error::Failed to obtain access token"
+            exit 1
+          fi
+
+          # 2. Upload the zip to the existing extension item
+          UPLOAD_RESP=$(curl -sS -f \
+            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+            -H "x-goog-api-version: 2" \
+            -X PUT \
+            -T tabby-grouper.zip \
+            "https://www.googleapis.com/upload/chromewebstore/v1.1/items/${EXTENSION_ID}")
+          echo "Upload response: $UPLOAD_RESP"
+
+          UPLOAD_STATE=$(echo "$UPLOAD_RESP" | jq -r .uploadState)
+          if [ "$UPLOAD_STATE" != "SUCCESS" ]; then
+            echo "::error::Upload failed (state=$UPLOAD_STATE)"
+            exit 1
+          fi
+
+          # 3. Submit for review (publish to default audience)
+          PUBLISH_RESP=$(curl -sS -f \
+            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+            -H "x-goog-api-version: 2" \
+            -H "Content-Length: 0" \
+            -X POST \
+            "https://www.googleapis.com/chromewebstore/v1.1/items/${EXTENSION_ID}/publish")
+          echo "Publish response: $PUBLISH_RESP"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: tabby-grouper.zip
+          generate_release_notes: true
