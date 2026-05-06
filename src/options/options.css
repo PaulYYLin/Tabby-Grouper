@@ -12,6 +12,10 @@
   --danger: #c0382a;
   --danger-soft: rgba(192, 56, 42, 0.08);
   --danger-border: rgba(192, 56, 42, 0.4);
+  --danger-ring: rgba(192, 56, 42, 0.28);
+  --success: #1a7f37;
+  --success-soft: rgba(26, 127, 55, 0.18);
+  --success-ring: rgba(26, 127, 55, 0.28);
 }
 
 * {
@@ -85,6 +89,26 @@ input:focus {
   box-shadow: 0 0 0 3px var(--brand-ring);
 }
 
+input.is-valid {
+  border-color: var(--success);
+  box-shadow: 0 0 0 3px var(--success-soft);
+}
+
+input.is-valid:focus {
+  border-color: var(--success);
+  box-shadow: 0 0 0 3px var(--success-ring);
+}
+
+input.is-invalid {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px var(--danger-soft);
+}
+
+input.is-invalid:focus {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px var(--danger-ring);
+}
+
 select {
   padding: 8px 10px;
   font-size: 14px;
@@ -105,6 +129,57 @@ select:focus {
   margin: 0;
   font-size: 12px;
   color: var(--text-muted);
+}
+
+.api-key-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.api-key-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.api-key-test {
+  align-self: stretch;
+  margin-top: 0;
+  flex-shrink: 0;
+  background: var(--surface-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  font-weight: 500;
+}
+
+.api-key-test:hover:not(:disabled) {
+  background: #eaeef2;
+}
+
+.api-key-test:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.api-key-validation {
+  margin-top: 4px;
+  word-break: break-word;
+}
+
+.api-key-validation.is-ok {
+  color: var(--success);
+}
+
+.api-key-validation.is-err {
+  color: var(--danger);
+}
+
+.api-key-validation.is-info {
+  color: var(--text-muted);
+}
+
+.api-key-validation[hidden] {
+  display: none;
 }
 
 .hint a {

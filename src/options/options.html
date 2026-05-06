@@ -50,14 +50,27 @@
         </select>
 
         <label for="api-key" data-i18n="apiKeyLabel"></label>
-        <input
-          id="api-key"
-          name="apiKey"
-          type="password"
-          autocomplete="off"
-          spellcheck="false"
-          required
-        />
+        <div class="api-key-row">
+          <input
+            id="api-key"
+            name="apiKey"
+            type="password"
+            autocomplete="off"
+            spellcheck="false"
+            required
+          />
+          <button
+            type="button"
+            id="api-key-test"
+            class="api-key-test"
+            data-i18n="apiKeyTestBtn"
+          ></button>
+        </div>
+        <p
+          id="api-key-validation"
+          class="hint api-key-validation"
+          hidden
+        ></p>
         <p class="hint">
           <span data-i18n="apiKeyHintPrefix"></span>
           <a id="api-key-link" target="_blank" rel="noreferrer"></a>

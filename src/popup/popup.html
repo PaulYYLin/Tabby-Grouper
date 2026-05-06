@@ -44,14 +44,26 @@
           <h2 class="view-title" data-i18n="viewGroupTitle"></h2>
           <p class="view-desc" data-i18n="viewGroupDesc"></p>
         </header>
-        <textarea
-          id="instruction"
-          class="instruction"
-          rows="3"
-          maxlength="512"
-          data-i18n-placeholder="instructionPlaceholder"
-        ></textarea>
-        <button id="group-btn" class="cta" type="button" data-i18n="ctaGroup"></button>
+        <div id="setup-empty" class="setup-empty" hidden>
+          <p class="setup-empty-title" data-i18n="setupEmptyTitle"></p>
+          <p class="setup-empty-hint" data-i18n="setupEmptyHint"></p>
+          <button
+            id="setup-cta"
+            class="cta"
+            type="button"
+            data-i18n="setupEmptyCta"
+          ></button>
+        </div>
+        <div id="group-form">
+          <textarea
+            id="instruction"
+            class="instruction"
+            rows="3"
+            maxlength="512"
+            data-i18n-placeholder="instructionPlaceholder"
+          ></textarea>
+          <button id="group-btn" class="cta" type="button" data-i18n="ctaGroup"></button>
+        </div>
         <p id="status" class="status"></p>
       </section>
 

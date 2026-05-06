@@ -627,6 +627,44 @@ button.icon-btn--danger:hover:not(:disabled) {
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
 }
 
+.setup-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 14px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  background: rgba(16, 81, 171, 0.04);
+}
+
+.setup-empty[hidden] {
+  display: none;
+}
+
+.setup-empty-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.setup-empty-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+#group-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#group-form[hidden] {
+  display: none;
+}
+
 .pending {
   display: flex;
   flex-direction: column;

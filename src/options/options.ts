@@ -13,6 +13,7 @@ import {
   PROVIDERS,
   coerceProviderRecord,
   isProvider,
+  validateApiKey,
   type Provider,
   type ProviderRecord,
 } from '../lib/openrouter';
@@ -35,6 +36,10 @@ const form = document.getElementById('options-form') as HTMLFormElement;
 const providerSelect = document.getElementById('provider') as HTMLSelectElement;
 const apiKeyInput = document.getElementById('api-key') as HTMLInputElement;
 const apiKeyLink = document.getElementById('api-key-link') as HTMLAnchorElement;
+const apiKeyTestBtn = document.getElementById('api-key-test') as HTMLButtonElement;
+const apiKeyValidationEl = document.getElementById(
+  'api-key-validation',
+) as HTMLParagraphElement;
 const modelInput = document.getElementById('model') as HTMLInputElement;
 const modelHintBefore = document.getElementById('model-hint-before') as HTMLSpanElement;
 const modelsLink = document.getElementById('models-link') as HTMLAnchorElement;
@@ -186,7 +191,128 @@ providerSelect.addEventListener('change', () => {
   apiKeyInput.value = apiKeys[provider];
   modelInput.value = models[provider];
   applyProviderHints();
+  resetApiKeyValidation();
 });
+
+type ValidationStatusKind = 'ok' | 'err' | 'info';
+type FieldHighlight = 'key' | 'model' | 'both';
+
+let lastValidatedKey = '';
+let lastValidatedModel = '';
+let lastValidatedProvider: Provider | null = null;
+
+function clearFieldHighlight(): void {
+  for (const el of [apiKeyInput, modelInput]) {
+    el.classList.remove('is-valid', 'is-invalid');
+  }
+}
+
+function setFieldHighlight(target: FieldHighlight, kind: 'valid' | 'invalid'): void {
+  clearFieldHighlight();
+  const cls = kind === 'valid' ? 'is-valid' : 'is-invalid';
+  if (target === 'key' || target === 'both') apiKeyInput.classList.add(cls);
+  if (target === 'model' || target === 'both') modelInput.classList.add(cls);
+}
+
+function setValidationMessage(text: string, kind: ValidationStatusKind): void {
+  apiKeyValidationEl.hidden = false;
+  apiKeyValidationEl.textContent = text;
+  apiKeyValidationEl.classList.remove('is-ok', 'is-err', 'is-info');
+  apiKeyValidationEl.classList.add(`is-${kind}`);
+}
+
+function resetApiKeyValidation(): void {
+  apiKeyValidationEl.hidden = true;
+  apiKeyValidationEl.textContent = '';
+  apiKeyValidationEl.classList.remove('is-ok', 'is-err', 'is-info');
+  clearFieldHighlight();
+  lastValidatedKey = '';
+  lastValidatedModel = '';
+  lastValidatedProvider = null;
+}
+
+async function runApiKeyValidation(): Promise<void> {
+  const key = apiKeyInput.value.trim();
+  const model = modelInput.value.trim();
+  if (!key) {
+    setValidationMessage(t('apiKeyTestEmpty'), 'err');
+    setFieldHighlight('key', 'invalid');
+    return;
+  }
+  apiKeyTestBtn.disabled = true;
+  setValidationMessage(t('apiKeyTesting'), 'info');
+  clearFieldHighlight();
+  const targetProvider = provider;
+  try {
+    const r = await validateApiKey(targetProvider, key, model);
+    if (
+      targetProvider !== provider ||
+      apiKeyInput.value.trim() !== key ||
+      modelInput.value.trim() !== model
+    ) {
+      // user changed something while the request was in-flight; bail
+      return;
+    }
+    if (r.ok) {
+      setValidationMessage(
+        r.kind === 'rate_limited' ? t('apiKeyTestRateLimited') : t('apiKeyTestOk'),
+        'ok',
+      );
+      setFieldHighlight(model ? 'both' : 'key', 'valid');
+      lastValidatedKey = key;
+      lastValidatedModel = model;
+      lastValidatedProvider = targetProvider;
+      return;
+    }
+    switch (r.kind) {
+      case 'invalid':
+        setValidationMessage(t('apiKeyTestInvalid'), 'err');
+        setFieldHighlight('key', 'invalid');
+        break;
+      case 'forbidden':
+        setValidationMessage(t('apiKeyTestForbidden'), 'err');
+        setFieldHighlight('key', 'invalid');
+        break;
+      case 'model_not_found':
+        setValidationMessage(t('apiKeyTestModelNotFound'), 'err');
+        setFieldHighlight('model', 'invalid');
+        break;
+      case 'network':
+        setValidationMessage(t('apiKeyTestNetwork')(r.body ?? ''), 'err');
+        clearFieldHighlight();
+        break;
+      case 'empty':
+        setValidationMessage(t('apiKeyTestEmpty'), 'err');
+        setFieldHighlight('key', 'invalid');
+        break;
+      case 'other':
+        setValidationMessage(t('apiKeyTestStatus')(r.status ?? 0, r.body ?? ''), 'err');
+        setFieldHighlight('key', 'invalid');
+        break;
+    }
+  } finally {
+    apiKeyTestBtn.disabled = false;
+  }
+}
+
+apiKeyTestBtn.addEventListener('click', () => {
+  void runApiKeyValidation();
+});
+
+function isAlreadyValidated(): boolean {
+  return (
+    apiKeyInput.value.trim() === lastValidatedKey &&
+    modelInput.value.trim() === lastValidatedModel &&
+    provider === lastValidatedProvider
+  );
+}
+
+for (const el of [apiKeyInput, modelInput]) {
+  el.addEventListener('input', () => {
+    if (isAlreadyValidated()) return;
+    resetApiKeyValidation();
+  });
+}
 
 function setUserPrefsTooltipOpen(open: boolean): void {
   userPrefsInfoTip.hidden = !open;

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { classifyTabs, type TabInfo } from './openrouter';
+import { classifyTabs, classifyValidationResponse, type TabInfo } from './openrouter';
 
 const TABS: TabInfo[] = [
   { id: 1, title: 'GitHub PR', url: 'https://github.com/a/b/pull/1' },
@@ -204,5 +204,89 @@ describe('classifyTabs', () => {
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     const userMsg = body.messages.find((m: { role: string }) => m.role === 'user').content;
     expect(userMsg).toContain('只分組工作相關的分頁');
+  });
+});
+
+describe('classifyValidationResponse', () => {
+  it('200 -> ok', () => {
+    expect(classifyValidationResponse(200, '')).toEqual({ ok: true, kind: 'ok' });
+  });
+
+  it('204 -> ok（任何 2xx）', () => {
+    expect(classifyValidationResponse(204, '')).toEqual({ ok: true, kind: 'ok' });
+  });
+
+  it('401 -> invalid', () => {
+    expect(classifyValidationResponse(401, 'Unauthorized')).toMatchObject({
+      ok: false,
+      kind: 'invalid',
+      status: 401,
+    });
+  });
+
+  it('403 -> forbidden', () => {
+    expect(classifyValidationResponse(403, 'Forbidden')).toMatchObject({
+      ok: false,
+      kind: 'forbidden',
+      status: 403,
+    });
+  });
+
+  it('429 -> rate_limited 視為 ok', () => {
+    expect(classifyValidationResponse(429, 'Too Many Requests')).toEqual({
+      ok: true,
+      kind: 'rate_limited',
+    });
+  });
+
+  it('404 -> model_not_found', () => {
+    expect(classifyValidationResponse(404, 'Not Found')).toMatchObject({
+      ok: false,
+      kind: 'model_not_found',
+      status: 404,
+    });
+  });
+
+  it('400 帶 model 訊息 -> model_not_found', () => {
+    expect(
+      classifyValidationResponse(400, 'The model `gpt-9` does not exist'),
+    ).toMatchObject({ ok: false, kind: 'model_not_found', status: 400 });
+  });
+
+  it('400 帶 "API key not valid"（Gemini 風格）-> invalid', () => {
+    expect(
+      classifyValidationResponse(400, 'API key not valid. Pass a valid API key.'),
+    ).toMatchObject({ ok: false, kind: 'invalid', status: 400 });
+  });
+
+  it('400 帶 api_key / api-key 變體 -> invalid', () => {
+    expect(classifyValidationResponse(400, 'invalid api_key supplied')).toMatchObject({
+      kind: 'invalid',
+    });
+    expect(classifyValidationResponse(400, 'bad api-key')).toMatchObject({
+      kind: 'invalid',
+    });
+  });
+
+  it('400 同時提到 api key 與 model 時優先 invalid', () => {
+    expect(
+      classifyValidationResponse(400, 'API key required for model gpt-4o'),
+    ).toMatchObject({ kind: 'invalid' });
+  });
+
+  it('400 不帶可辨識訊息 -> other', () => {
+    expect(classifyValidationResponse(400, 'malformed request')).toMatchObject({
+      ok: false,
+      kind: 'other',
+      status: 400,
+    });
+  });
+
+  it('500 -> other', () => {
+    expect(classifyValidationResponse(500, 'Internal Server Error')).toMatchObject({
+      ok: false,
+      kind: 'other',
+      status: 500,
+    });
   });
 });

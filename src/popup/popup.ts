@@ -23,11 +23,15 @@ import {
   type PendingKind,
   type Task,
 } from '../lib/tasks';
+import { getProviderConfig } from '../lib/openrouter';
 
 const btn = document.getElementById('group-btn') as HTMLButtonElement;
 const statusEl = document.getElementById('status') as HTMLParagraphElement;
 const tasksStatusEl = document.getElementById('tasks-status') as HTMLParagraphElement;
 const optionsLink = document.getElementById('options-link') as HTMLAnchorElement;
+const setupEmptyEl = document.getElementById('setup-empty') as HTMLDivElement;
+const setupCtaBtn = document.getElementById('setup-cta') as HTMLButtonElement;
+const groupFormEl = document.getElementById('group-form') as HTMLDivElement;
 const instructionEl = document.getElementById('instruction') as HTMLTextAreaElement;
 const versionEl = document.getElementById('version') as HTMLSpanElement;
 const taskListEl = document.getElementById('task-list') as HTMLUListElement;
@@ -88,6 +92,27 @@ btn.addEventListener('click', async () => {
 optionsLink.addEventListener('click', (e) => {
   e.preventDefault();
   chrome.runtime.openOptionsPage();
+});
+
+setupCtaBtn.addEventListener('click', () => {
+  chrome.runtime.openOptionsPage();
+});
+
+async function refreshSetupState(): Promise<void> {
+  const { apiKey } = await getProviderConfig();
+  const ok = apiKey.length > 0;
+  setupEmptyEl.hidden = ok;
+  groupFormEl.hidden = !ok;
+}
+
+void refreshSetupState();
+
+chrome.storage.sync.onChanged.addListener((changes) => {
+  // 'apiKey' is the legacy singular field kept for pre-record installs
+  // (coerceProviderRecord folds it into the per-provider 'apiKeys' record).
+  if ('apiKey' in changes || 'apiKeys' in changes || 'provider' in changes) {
+    void refreshSetupState();
+  }
 });
 
 tabButtons.forEach((b) => {

@@ -122,6 +122,76 @@ export interface ProviderConfig {
   model: string;
 }
 
+export type ValidateApiKeyResult =
+  | { ok: true; kind: 'ok' | 'rate_limited' }
+  | {
+      ok: false;
+      kind: 'empty' | 'invalid' | 'forbidden' | 'model_not_found' | 'network' | 'other';
+      status?: number;
+      body?: string;
+    };
+
+// Pure mapping from a provider HTTP response to a ValidateApiKeyResult. Split
+// out so the status→kind logic can be unit-tested without mocking fetch, and
+// so provider-specific quirks (Gemini's OpenAI-compat endpoint returns 400
+// "API key not valid" instead of 401) are encoded in one place.
+export function classifyValidationResponse(
+  status: number,
+  body: string,
+): ValidateApiKeyResult {
+  if (status >= 200 && status < 300) return { ok: true, kind: 'ok' };
+  if (status === 401) return { ok: false, kind: 'invalid', status, body };
+  if (status === 403) return { ok: false, kind: 'forbidden', status, body };
+  if (status === 429) return { ok: true, kind: 'rate_limited' };
+  if (status === 404) return { ok: false, kind: 'model_not_found', status, body };
+  if (status === 400) {
+    if (/api[\s_-]?key/i.test(body)) {
+      return { ok: false, kind: 'invalid', status, body };
+    }
+    if (/model/i.test(body)) {
+      return { ok: false, kind: 'model_not_found', status, body };
+    }
+  }
+  return { ok: false, kind: 'other', status, body };
+}
+
+// Cheapest possible call to confirm the configuration is accepted by the
+// provider. When `model` is empty the provider's default model is used, so
+// validating a fresh key alone doesn't depend on the user typing a model name.
+export async function validateApiKey(
+  provider: Provider,
+  apiKey: string,
+  model?: string,
+): Promise<ValidateApiKeyResult> {
+  if (!apiKey) return { ok: false, kind: 'empty' };
+  const info = PROVIDERS[provider];
+  const effectiveModel = (model && model.trim()) || info.defaultModel;
+  let res: Response;
+  try {
+    res = await fetch(info.endpoint, {
+      method: 'POST',
+      headers: buildHeaders(provider, apiKey),
+      body: JSON.stringify({
+        model: normalizeModelForProvider(effectiveModel, provider),
+        messages: [{ role: 'user', content: 'ping' }],
+        max_tokens: 1,
+        temperature: 0,
+      }),
+    });
+  } catch (err) {
+    return { ok: false, kind: 'network', body: err instanceof Error ? err.message : String(err) };
+  }
+  let body = '';
+  if (!res.ok) {
+    try {
+      body = (await res.text()).slice(0, 200);
+    } catch {
+      // body is best-effort
+    }
+  }
+  return classifyValidationResponse(res.status, body);
+}
+
 export async function getProviderConfig(): Promise<ProviderConfig> {
   const stored = (await chrome.storage.sync.get([
     'provider',
@@ -137,9 +207,9 @@ export async function getProviderConfig(): Promise<ProviderConfig> {
     models?: unknown;
   };
   const provider = isProvider(stored.provider) ? stored.provider : DEFAULT_PROVIDER;
-  const apiKey = coerceProviderRecord(stored.apiKeys, stored.apiKey)[provider];
+  const apiKey = coerceProviderRecord(stored.apiKeys, stored.apiKey)[provider].trim();
   const model =
-    coerceProviderRecord(stored.models, stored.model)[provider] ||
+    coerceProviderRecord(stored.models, stored.model)[provider].trim() ||
     PROVIDERS[provider].defaultModel;
   return { provider, apiKey, model };
 }

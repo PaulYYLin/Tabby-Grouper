@@ -662,8 +662,11 @@ function fullInit(): Promise<void> {
   })();
 }
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
   void fullInit();
+  if (details.reason === 'install') {
+    void chrome.runtime.openOptionsPage();
+  }
 });
 
 chrome.runtime.onStartup.addListener(() => {
