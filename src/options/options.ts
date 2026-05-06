@@ -1,5 +1,13 @@
 import '../fonts.css';
-import { applyDomI18n, getLang, htmlLangFor, setLang, tFor, type Lang } from '../lib/i18n';
+import {
+  applyDomI18n,
+  formatRelative,
+  getLang,
+  htmlLangFor,
+  setLang,
+  tFor,
+  type Lang,
+} from '../lib/i18n';
 import {
   DEFAULT_PROVIDER,
   PROVIDERS,
@@ -13,6 +21,13 @@ import {
   isDraggedTabPolicy,
   type DraggedTabPolicy,
 } from '../lib/tasks';
+import { MAX_HINTS_LEN, type MemoryField } from '../lib/userPrefs';
+import type {
+  MemoryView,
+  GetMemoryResponse,
+  Message,
+  SimpleResponse,
+} from '../lib/messages';
 
 export {};
 
@@ -36,7 +51,59 @@ const saveStatus = document.getElementById('save-status') as HTMLParagraphElemen
 const langToggle = document.getElementById('lang-toggle') as HTMLDivElement;
 const langButtons = langToggle.querySelectorAll<HTMLButtonElement>('.lang-opt');
 
+const memorySection = document.getElementById('memory-section') as HTMLElement;
+const memoryDistilledText = document.getElementById(
+  'memory-distilled-text',
+) as HTMLTextAreaElement;
+const memoryDistilledUpdated = document.getElementById(
+  'memory-distilled-updated',
+) as HTMLSpanElement;
+const memoryDistilledCharCount = document.getElementById(
+  'memory-distilled-charcount',
+) as HTMLSpanElement;
+const memoryDistilledLangMismatch = document.getElementById(
+  'memory-distilled-lang-mismatch',
+) as HTMLParagraphElement;
+const memoryDistilledSaveBtn = document.getElementById(
+  'memory-distilled-save',
+) as HTMLButtonElement;
+const memoryPausedBanner = document.getElementById(
+  'memory-paused-banner',
+) as HTMLDivElement;
+const memoryAutoLearnIdle = document.getElementById(
+  'memory-autolearn-idle',
+) as HTMLParagraphElement;
+const memoryRunAutoLearnBtn = document.getElementById(
+  'memory-run-autolearn',
+) as HTMLButtonElement;
+const memorySamplesCount = document.getElementById(
+  'memory-samples-count',
+) as HTMLSpanElement;
+const memoryStatus = document.getElementById('memory-status') as HTMLParagraphElement;
+const memoryClearAllBtn = document.getElementById('memory-clear-all') as HTMLButtonElement;
+const memoryBucketLists: Record<MemoryField, HTMLUListElement> = {
+  userNames: document.getElementById('memory-list-userNames') as HTMLUListElement,
+  aiNames: document.getElementById('memory-list-aiNames') as HTMLUListElement,
+  instructions: document.getElementById('memory-list-instructions') as HTMLUListElement,
+};
+const memoryClearBucketBtns: Record<MemoryField, HTMLButtonElement> = {
+  userNames: document.getElementById('memory-clear-bucket-userNames') as HTMLButtonElement,
+  aiNames: document.getElementById('memory-clear-bucket-aiNames') as HTMLButtonElement,
+  instructions: document.getElementById('memory-clear-bucket-instructions') as HTMLButtonElement,
+};
+const MEMORY_BUCKET_LABEL_KEY: Record<
+  MemoryField,
+  'memoryBucketUserNames' | 'memoryBucketAiNames' | 'memoryBucketInstructions'
+> = {
+  userNames: 'memoryBucketUserNames',
+  aiNames: 'memoryBucketAiNames',
+  instructions: 'memoryBucketInstructions',
+};
+const MEMORY_FIELDS: readonly MemoryField[] = ['userNames', 'aiNames', 'instructions'];
+
 let savedTimer: number | undefined;
+let memoryStatusTimer: number | undefined;
+let currentMemory: MemoryView | null = null;
 
 const stored = (await chrome.storage.sync.get([
   'provider',
@@ -73,6 +140,12 @@ modelInput.value = models[provider];
 addPolicySelect.value = coercePolicy(stored.addDraggedTabPolicy);
 removePolicySelect.value = coercePolicy(stored.removeDraggedTabPolicy);
 userPrefsEnabledInput.checked = stored.userPrefsEnabled === true;
+
+function syncMemoryVisibility(): void {
+  memorySection.hidden = !userPrefsEnabledInput.checked;
+}
+syncMemoryVisibility();
+userPrefsEnabledInput.addEventListener('change', syncMemoryVisibility);
 
 let lang: Lang = await getLang();
 let t = tFor(lang);
@@ -147,6 +220,7 @@ langButtons.forEach((b) => {
     t = tFor(lang);
     await setLang(lang);
     applyI18n();
+    if (currentMemory) renderMemory(currentMemory);
   });
 });
 
@@ -170,3 +244,184 @@ form.addEventListener('submit', async (e) => {
     savedTimer = undefined;
   }, 2000);
 });
+
+function send<R>(msg: Message): Promise<R> {
+  return chrome.runtime.sendMessage(msg) as Promise<R>;
+}
+
+function langLabel(l: Lang | ''): string {
+  return l === '' ? '' : t(l === 'zh' ? 'langZh' : 'langEn');
+}
+
+function showMemoryStatus(text: string, kind: 'ok' | 'err' = 'ok'): void {
+  memoryStatus.textContent = text;
+  memoryStatus.style.color = kind === 'err' ? 'var(--danger)' : 'var(--brand)';
+  if (memoryStatusTimer !== undefined) clearTimeout(memoryStatusTimer);
+  memoryStatusTimer = window.setTimeout(() => {
+    memoryStatus.textContent = '';
+    memoryStatusTimer = undefined;
+  }, 3000);
+}
+
+function renderMemoryBucket(field: MemoryField, items: string[]): void {
+  const ul = memoryBucketLists[field];
+  ul.replaceChildren();
+  if (items.length === 0) {
+    const li = document.createElement('li');
+    li.className = 'memory-bucket-empty hint';
+    li.textContent = t('memoryBucketEmpty');
+    ul.appendChild(li);
+    return;
+  }
+  for (const value of items) {
+    const li = document.createElement('li');
+    li.className = 'memory-bucket-item';
+    const span = document.createElement('span');
+    span.className = 'memory-bucket-item-text';
+    span.textContent = value;
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'memory-sample-delete';
+    del.textContent = '✕';
+    del.setAttribute('aria-label', t('memorySampleDeleteLabel'));
+    del.title = t('memorySampleDeleteLabel');
+    del.addEventListener('click', () => {
+      void handleRemoveSample(field, value);
+    });
+    li.appendChild(span);
+    li.appendChild(del);
+    ul.appendChild(li);
+  }
+}
+
+function renderMemory(memory: MemoryView): void {
+  currentMemory = memory;
+
+  if (memoryDistilledText.value !== memory.distilled) {
+    memoryDistilledText.value = memory.distilled;
+  }
+  updateCharCount();
+
+  if (memory.distilledAt > 0) {
+    memoryDistilledUpdated.textContent = t('memoryDistilledMetaUpdated')(
+      formatRelative(t, memory.distilledAt),
+    );
+  } else {
+    memoryDistilledUpdated.textContent = t('memoryDistilledMetaEmpty');
+  }
+
+  const langMismatch = memory.distilledLang !== '' && memory.distilledLang !== lang;
+  if (langMismatch) {
+    memoryDistilledLangMismatch.hidden = false;
+    memoryDistilledLangMismatch.textContent = t('memoryDistilledLangMismatch')(
+      langLabel(memory.distilledLang),
+      langLabel(lang),
+    );
+  } else {
+    memoryDistilledLangMismatch.hidden = true;
+    memoryDistilledLangMismatch.textContent = '';
+  }
+
+  memoryPausedBanner.hidden = !memory.autoLearnPaused;
+  memoryAutoLearnIdle.hidden = memory.autoLearnPaused;
+
+  const total =
+    memory.userNames.length + memory.aiNames.length + memory.instructions.length;
+  memorySamplesCount.textContent = t('memorySamplesCount')(total);
+
+  renderMemoryBucket('userNames', memory.userNames);
+  renderMemoryBucket('aiNames', memory.aiNames);
+  renderMemoryBucket('instructions', memory.instructions);
+
+  for (const f of MEMORY_FIELDS) {
+    memoryClearBucketBtns[f].hidden = memory[f].length === 0;
+  }
+
+  memoryClearAllBtn.hidden = total === 0 && !memory.distilled;
+}
+
+function updateCharCount(): void {
+  const n = memoryDistilledText.value.length;
+  memoryDistilledCharCount.textContent = t('memoryDistilledCharCount')(n, MAX_HINTS_LEN);
+}
+
+async function loadMemory(): Promise<void> {
+  const res = await send<GetMemoryResponse>({ type: 'GET_MEMORY' });
+  if (!res.ok) return;
+  renderMemory(res.memory);
+}
+
+memoryDistilledText.addEventListener('input', updateCharCount);
+
+memoryDistilledSaveBtn.addEventListener('click', async () => {
+  memoryDistilledSaveBtn.disabled = true;
+  try {
+    const res = await send<SimpleResponse>({
+      type: 'UPDATE_DISTILLED',
+      text: memoryDistilledText.value,
+    });
+    if (res.ok) {
+      showMemoryStatus(t('memorySaved'));
+      await loadMemory();
+    } else {
+      showMemoryStatus(res.error, 'err');
+    }
+  } finally {
+    memoryDistilledSaveBtn.disabled = false;
+  }
+});
+
+memoryRunAutoLearnBtn.addEventListener('click', async () => {
+  if (currentMemory?.autoLearnPaused && !confirm(t('memoryConfirmRunOverwrite'))) return;
+  const originalText = memoryRunAutoLearnBtn.textContent;
+  memoryRunAutoLearnBtn.disabled = true;
+  memoryRunAutoLearnBtn.textContent = t('memoryRunningAutoLearn');
+  try {
+    const res = await send<SimpleResponse>({ type: 'RUN_AUTO_LEARN' });
+    if (res.ok) {
+      showMemoryStatus(t('memoryRanAutoLearn'));
+      await loadMemory();
+    } else {
+      showMemoryStatus(res.error, 'err');
+    }
+  } finally {
+    memoryRunAutoLearnBtn.disabled = false;
+    memoryRunAutoLearnBtn.textContent = originalText;
+  }
+});
+
+async function handleRemoveSample(field: MemoryField, value: string): Promise<void> {
+  const res = await send<SimpleResponse>({
+    type: 'REMOVE_MEMORY_SAMPLE',
+    field,
+    value,
+  });
+  if (res.ok) await loadMemory();
+  else showMemoryStatus(res.error, 'err');
+}
+
+for (const field of MEMORY_FIELDS) {
+  memoryClearBucketBtns[field].addEventListener('click', async () => {
+    if (!confirm(t('memoryConfirmClearBucket')(t(MEMORY_BUCKET_LABEL_KEY[field])))) return;
+    const res = await send<SimpleResponse>({ type: 'CLEAR_MEMORY_SAMPLES', field });
+    if (res.ok) {
+      showMemoryStatus(t('memoryCleared'));
+      await loadMemory();
+    } else {
+      showMemoryStatus(res.error, 'err');
+    }
+  });
+}
+
+memoryClearAllBtn.addEventListener('click', async () => {
+  if (!confirm(t('memoryConfirmClearAll'))) return;
+  const res = await send<SimpleResponse>({ type: 'CLEAR_MEMORY_ALL' });
+  if (res.ok) {
+    showMemoryStatus(t('memoryCleared'));
+    await loadMemory();
+  } else {
+    showMemoryStatus(res.error, 'err');
+  }
+});
+
+void loadMemory();

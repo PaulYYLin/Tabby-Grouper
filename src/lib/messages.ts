@@ -1,3 +1,5 @@
+import type { Lang } from './i18n';
+import type { MemoryField } from './userPrefs';
 import type { PendingAddition, Task } from './tasks';
 
 export type Message =
@@ -13,7 +15,23 @@ export type Message =
       id: string;
       confirm: boolean;
       dontAskAgain: boolean;
-    };
+    }
+  | { type: 'GET_MEMORY' }
+  | { type: 'UPDATE_DISTILLED'; text: string }
+  | { type: 'REMOVE_MEMORY_SAMPLE'; field: MemoryField; value: string }
+  | { type: 'CLEAR_MEMORY_SAMPLES'; field: MemoryField }
+  | { type: 'CLEAR_MEMORY_ALL' }
+  | { type: 'RUN_AUTO_LEARN' };
+
+export interface MemoryView {
+  distilled: string;
+  distilledAt: number;
+  distilledLang: Lang | '';
+  autoLearnPaused: boolean;
+  instructions: string[];
+  userNames: string[];
+  aiNames: string[];
+}
 
 export interface PendingAdditionView extends PendingAddition {
   taskName: string;
@@ -36,4 +54,8 @@ export type SimpleResponse = { ok: true } | { ok: false; error: string };
 
 export type ListPendingAdditionsResponse =
   | { ok: true; pending: PendingAdditionView[] }
+  | { ok: false; error: string };
+
+export type GetMemoryResponse =
+  | { ok: true; memory: MemoryView }
   | { ok: false; error: string };

@@ -134,6 +134,109 @@
         <button type="submit" data-i18n="saveBtn"></button>
         <p id="save-status" class="status"></p>
       </form>
+
+      <section id="memory-section" class="memory-section" hidden>
+        <header class="memory-header">
+          <h2 data-i18n="memoryTitle"></h2>
+          <p class="hint" data-i18n="memoryHint"></p>
+        </header>
+
+        <div class="memory-distilled">
+          <label
+            for="memory-distilled-text"
+            data-i18n="memoryDistilledLabel"
+          ></label>
+          <textarea
+            id="memory-distilled-text"
+            maxlength="600"
+            rows="6"
+            data-i18n-placeholder="memoryDistilledPlaceholder"
+          ></textarea>
+          <div class="memory-distilled-meta">
+            <span id="memory-distilled-updated" class="hint"></span>
+            <span id="memory-distilled-charcount" class="hint"></span>
+          </div>
+          <p
+            id="memory-distilled-lang-mismatch"
+            class="hint memory-warn"
+            hidden
+          ></p>
+          <div class="memory-actions-row">
+            <button
+              type="button"
+              id="memory-distilled-save"
+              data-i18n="memorySaveBtn"
+            ></button>
+          </div>
+        </div>
+
+        <div class="memory-autolearn">
+          <div
+            id="memory-paused-banner"
+            class="memory-banner memory-banner--warn"
+            data-i18n="memoryPausedBanner"
+            hidden
+          ></div>
+          <p
+            id="memory-autolearn-idle"
+            class="hint"
+            data-i18n="memoryAutoLearnIdle"
+          ></p>
+          <button
+            type="button"
+            id="memory-run-autolearn"
+            class="memory-secondary-btn"
+            data-i18n="memoryRunAutoLearn"
+          ></button>
+        </div>
+
+        <details class="memory-samples">
+          <summary>
+            <span data-i18n="memorySamplesTitle"></span>
+            <span id="memory-samples-count" class="memory-samples-count"></span>
+          </summary>
+          <div class="memory-bucket">
+            <h3 data-i18n="memoryBucketUserNames"></h3>
+            <ul class="memory-bucket-list" id="memory-list-userNames"></ul>
+            <button
+              type="button"
+              id="memory-clear-bucket-userNames"
+              class="memory-link-btn"
+              data-i18n="memoryClearBucket"
+            ></button>
+          </div>
+          <div class="memory-bucket">
+            <h3 data-i18n="memoryBucketAiNames"></h3>
+            <ul class="memory-bucket-list" id="memory-list-aiNames"></ul>
+            <button
+              type="button"
+              id="memory-clear-bucket-aiNames"
+              class="memory-link-btn"
+              data-i18n="memoryClearBucket"
+            ></button>
+          </div>
+          <div class="memory-bucket">
+            <h3 data-i18n="memoryBucketInstructions"></h3>
+            <ul class="memory-bucket-list" id="memory-list-instructions"></ul>
+            <button
+              type="button"
+              id="memory-clear-bucket-instructions"
+              class="memory-link-btn"
+              data-i18n="memoryClearBucket"
+            ></button>
+          </div>
+        </details>
+
+        <div class="memory-actions-row memory-actions-row--end">
+          <button
+            type="button"
+            id="memory-clear-all"
+            class="memory-danger-btn"
+            data-i18n="memoryClearAll"
+          ></button>
+        </div>
+        <p id="memory-status" class="status"></p>
+      </section>
     </main>
     <script type="module" src="./options.ts"></script>
   </body>

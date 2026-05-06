@@ -1,9 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   MAX_HINTS_LEN,
+  USER_PREFS_KEY,
   distillUserPrefs,
   emptyUserPrefs,
+  maybeRefreshDistill,
   pushCapped,
+  readUserPrefs,
+  recordAiName,
+  recordInstruction,
+  recordUserName,
+  removeSample,
+  runAutoLearn,
+  updateDistilledManual,
   type UserPrefs,
 } from './userPrefs';
 
@@ -16,6 +25,30 @@ function mockCompletion(content: string) {
     ok: true,
     json: async () => ({ choices: [{ message: { content } }] }),
     text: async () => '',
+  });
+}
+
+let chromeStore: Record<string, unknown>;
+let storageSetCalls: number;
+
+function stubChromeStorage(): void {
+  chromeStore = {};
+  storageSetCalls = 0;
+  vi.stubGlobal('chrome', {
+    storage: {
+      local: {
+        get: vi.fn(async (key: string) => {
+          return key in chromeStore ? { [key]: chromeStore[key] } : {};
+        }),
+        set: vi.fn(async (obj: Record<string, unknown>) => {
+          storageSetCalls += 1;
+          Object.assign(chromeStore, obj);
+        }),
+        remove: vi.fn(async (key: string) => {
+          delete chromeStore[key];
+        }),
+      },
+    },
   });
 }
 
@@ -143,5 +176,121 @@ describe('distillUserPrefs', () => {
     const aiNamesIdx = userMsg.indexOf('AI 給的名字');
     expect(userNamesIdx).toBeGreaterThan(-1);
     expect(aiNamesIdx).toBeGreaterThan(-1);
+  });
+});
+
+describe('withUserPrefsLock', () => {
+  beforeEach(() => {
+    stubChromeStorage();
+  });
+
+  it('serialises concurrent mutations so neither overwrites the other', async () => {
+    await Promise.all([
+      recordInstruction('first instruction'),
+      recordUserName('alice'),
+      recordAiName('Work'),
+    ]);
+
+    const prefs = await readUserPrefs();
+    expect(prefs.instructions).toEqual(['first instruction']);
+    expect(prefs.userNames).toEqual(['alice']);
+    expect(prefs.aiNames).toEqual(['Work']);
+    expect(prefs.samplesSinceDistill).toBe(3);
+  });
+
+  it('skips the storage write when fn returns the same prefs reference', async () => {
+    await recordInstruction('seed');
+    const baseline = storageSetCalls;
+
+    await removeSample('instructions', 'nonexistent');
+
+    expect(storageSetCalls).toBe(baseline);
+  });
+
+  it('re-checks autoLearnPaused inside the lock so a manual edit during fetch wins', async () => {
+    chromeStore[USER_PREFS_KEY] = prefsWith({
+      instructions: ['a', 'b', 'c'],
+      userNames: ['x'],
+    });
+
+    let resolveFetch: () => void = () => undefined;
+    const fetchPromise = new Promise<{
+      ok: boolean;
+      json: () => Promise<unknown>;
+      text: () => Promise<string>;
+    }>((r) => {
+      resolveFetch = () =>
+        r({
+          ok: true,
+          json: async () => ({ choices: [{ message: { content: 'auto-learned' } }] }),
+          text: async () => '',
+        });
+    });
+    vi.stubGlobal('fetch', vi.fn(() => fetchPromise));
+
+    const distillP = maybeRefreshDistill('k', 'm', 'openrouter', 'zh');
+    await updateDistilledManual('user typed this');
+    resolveFetch();
+    await distillP;
+
+    const prefs = await readUserPrefs();
+    expect(prefs.distilled).toBe('user typed this');
+    expect(prefs.autoLearnPaused).toBe(true);
+  });
+});
+
+describe('runAutoLearn', () => {
+  beforeEach(() => {
+    stubChromeStorage();
+  });
+
+  it('throws NO_API_KEY when apiKey is empty', async () => {
+    await expect(runAutoLearn('', 'm', 'openrouter', 'zh')).rejects.toThrow('NO_API_KEY');
+  });
+
+  it('throws NOT_ENOUGH_SAMPLES when total samples is below the threshold', async () => {
+    chromeStore[USER_PREFS_KEY] = prefsWith({ userNames: ['only-one'] });
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(runAutoLearn('k', 'm', 'openrouter', 'zh')).rejects.toThrow(
+      'NOT_ENOUGH_SAMPLES',
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('throws EMPTY_SUMMARY when the LLM returns no content', async () => {
+    chromeStore[USER_PREFS_KEY] = prefsWith({
+      userNames: ['a', 'b'],
+      instructions: ['c'],
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: '' } }] }),
+        text: async () => '',
+      }),
+    );
+
+    await expect(runAutoLearn('k', 'm', 'openrouter', 'zh')).rejects.toThrow('EMPTY_SUMMARY');
+  });
+
+  it('writes the summary and clears autoLearnPaused on success', async () => {
+    chromeStore[USER_PREFS_KEY] = prefsWith({
+      userNames: ['a', 'b'],
+      instructions: ['c'],
+      autoLearnPaused: true,
+      distilled: 'old hand-edited',
+    });
+    vi.stubGlobal('fetch', mockCompletion('fresh learned summary'));
+
+    await runAutoLearn('k', 'm', 'openrouter', 'zh');
+
+    const prefs = await readUserPrefs();
+    expect(prefs.distilled).toBe('fresh learned summary');
+    expect(prefs.distilledLang).toBe('zh');
+    expect(prefs.autoLearnPaused).toBe(false);
+    expect(prefs.samplesSinceDistill).toBe(0);
   });
 });

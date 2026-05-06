@@ -1,5 +1,13 @@
 import '../fonts.css';
-import { applyDomI18n, getLang, htmlLangFor, onLangChange, tFor, type Lang } from '../lib/i18n';
+import {
+  applyDomI18n,
+  formatRelative,
+  getLang,
+  htmlLangFor,
+  onLangChange,
+  tFor,
+  type Lang,
+} from '../lib/i18n';
 import type {
   GroupTabsResponse,
   ListPendingAdditionsResponse,
@@ -200,7 +208,7 @@ function renderTask(task: Task): HTMLLIElement {
 
   const meta = document.createElement('p');
   meta.className = 'task-meta';
-  meta.textContent = t('taskMeta')(task.tabs.length, formatRelative(task.updatedAt));
+  meta.textContent = t('taskMeta')(task.tabs.length, formatRelative(t, task.updatedAt));
   body.appendChild(meta);
 
   const actions = document.createElement('div');
@@ -503,16 +511,6 @@ function setStatus(el: HTMLElement, text: string, kind: StatusKind): void {
   if (kind !== 'info') el.classList.add(kind);
 }
 
-function formatRelative(ts: number): string {
-  const diff = Date.now() - ts;
-  const min = Math.round(diff / 60_000);
-  if (min < 1) return t('relJustNow');
-  if (min < 60) return t('relMinutes')(min);
-  const hr = Math.round(min / 60);
-  if (hr < 24) return t('relHours')(hr);
-  const day = Math.round(hr / 24);
-  return t('relDays')(day);
-}
 
 async function loadPendingAdditions(): Promise<void> {
   const res = await send<ListPendingAdditionsResponse>({ type: 'LIST_PENDING_ADDITIONS' });

@@ -10,8 +10,11 @@ export interface UserPrefs {
   distilledLang: Lang | '';
   distilledAt: number;
   samplesSinceDistill: number;
+  autoLearnPaused: boolean;
   updatedAt: number;
 }
+
+export type MemoryField = 'instructions' | 'userNames' | 'aiNames';
 
 export const USER_PREFS_KEY = 'tabby:userPrefs:v1';
 export const USER_PREFS_ENABLED_KEY = 'userPrefsEnabled';
@@ -37,6 +40,7 @@ export function emptyUserPrefs(): UserPrefs {
     distilledLang: '',
     distilledAt: 0,
     samplesSinceDistill: 0,
+    autoLearnPaused: false,
     updatedAt: 0,
   };
 }
@@ -56,22 +60,42 @@ function isUserPrefs(v: unknown): v is UserPrefs {
   );
 }
 
-export async function readUserPrefs(): Promise<UserPrefs> {
+async function rawRead(): Promise<UserPrefs> {
   const raw = await chrome.storage.local.get(USER_PREFS_KEY);
   const v = raw[USER_PREFS_KEY];
   if (!isUserPrefs(v)) return emptyUserPrefs();
-  return {
-    ...emptyUserPrefs(),
-    ...v,
-  };
+  return { ...emptyUserPrefs(), ...v };
 }
 
-export async function writeUserPrefs(prefs: UserPrefs): Promise<void> {
+async function rawWrite(prefs: UserPrefs): Promise<void> {
   await chrome.storage.local.set({ [USER_PREFS_KEY]: prefs });
 }
 
+export const readUserPrefs = rawRead;
+
+let chain: Promise<unknown> = Promise.resolve();
+
+export function withUserPrefsLock<T>(
+  fn: (prefs: UserPrefs) => Promise<{ next: UserPrefs; result: T }>,
+): Promise<T> {
+  const run = chain.then(async () => {
+    const cur = await rawRead();
+    const { next, result } = await fn(cur);
+    if (JSON.stringify(next) !== JSON.stringify(cur)) {
+      await rawWrite(next);
+    }
+    return result;
+  });
+  chain = run.catch(() => undefined);
+  return run;
+}
+
 export async function clearUserPrefs(): Promise<void> {
-  await chrome.storage.local.remove(USER_PREFS_KEY);
+  await withUserPrefsLock(async () => ({ next: emptyUserPrefs(), result: undefined }));
+}
+
+function countSamples(prefs: UserPrefs): number {
+  return prefs.instructions.length + prefs.userNames.length + prefs.aiNames.length;
 }
 
 export function pushCapped(arr: string[], item: string, cap: number): string[] {
@@ -83,21 +107,21 @@ export function pushCapped(arr: string[], item: string, cap: number): string[] {
 }
 
 async function recordSample(
-  field: 'instructions' | 'userNames' | 'aiNames',
+  field: MemoryField,
   value: string,
   cap: number,
 ): Promise<void> {
   const trimmed = value.trim();
   if (!trimmed) return;
-  const prefs = await readUserPrefs();
-  const next = pushCapped(prefs[field], trimmed, cap);
-  if (next === prefs[field]) return;
-  await writeUserPrefs({
-    ...prefs,
-    [field]: next,
-    samplesSinceDistill: prefs.samplesSinceDistill + 1,
-    updatedAt: Date.now(),
-  });
+  await withUserPrefsLock(async (prefs) => ({
+    next: {
+      ...prefs,
+      [field]: pushCapped(prefs[field], trimmed, cap),
+      samplesSinceDistill: prefs.samplesSinceDistill + 1,
+      updatedAt: Date.now(),
+    },
+    result: undefined,
+  }));
 }
 
 export function recordInstruction(instruction: string): Promise<void> {
@@ -218,6 +242,28 @@ export async function distillUserPrefs(
   return trimmed.length > MAX_HINTS_LEN ? trimmed.slice(0, MAX_HINTS_LEN) : trimmed;
 }
 
+async function applyDistilledSummary(
+  summary: string,
+  lang: Lang,
+  unpause: boolean,
+): Promise<void> {
+  await withUserPrefsLock(async (prefs) => {
+    if (!unpause && prefs.autoLearnPaused) return { next: prefs, result: undefined };
+    return {
+      next: {
+        ...prefs,
+        distilled: summary,
+        distilledLang: lang,
+        distilledAt: Date.now(),
+        samplesSinceDistill: 0,
+        autoLearnPaused: unpause ? false : prefs.autoLearnPaused,
+        updatedAt: Date.now(),
+      },
+      result: undefined,
+    };
+  });
+}
+
 export async function maybeRefreshDistill(
   apiKey: string,
   model: string,
@@ -226,8 +272,8 @@ export async function maybeRefreshDistill(
 ): Promise<void> {
   if (!apiKey) return;
   const prefs = await readUserPrefs();
-  const total = prefs.instructions.length + prefs.userNames.length + prefs.aiNames.length;
-  if (total < MIN_SAMPLES_TO_DISTILL) return;
+  if (prefs.autoLearnPaused) return;
+  if (countSamples(prefs) < MIN_SAMPLES_TO_DISTILL) return;
 
   const langChanged = !!prefs.distilledLang && prefs.distilledLang !== lang;
   const hasCache = !!prefs.distilled && !langChanged;
@@ -241,12 +287,54 @@ export async function maybeRefreshDistill(
   }
   if (!summary) return;
 
-  const latest = await readUserPrefs();
-  await writeUserPrefs({
-    ...latest,
-    distilled: summary,
-    distilledLang: lang,
-    distilledAt: Date.now(),
-    samplesSinceDistill: 0,
+  await applyDistilledSummary(summary, lang, false);
+}
+
+export async function updateDistilledManual(text: string): Promise<void> {
+  const trimmed = text.trim().slice(0, MAX_HINTS_LEN);
+  await withUserPrefsLock(async (prefs) => ({
+    next: {
+      ...prefs,
+      distilled: trimmed,
+      distilledAt: Date.now(),
+      autoLearnPaused: true,
+      updatedAt: Date.now(),
+    },
+    result: undefined,
+  }));
+}
+
+export async function removeSample(field: MemoryField, value: string): Promise<void> {
+  await withUserPrefsLock(async (prefs) => {
+    const next = prefs[field].filter((x) => x !== value);
+    if (next.length === prefs[field].length) return { next: prefs, result: undefined };
+    return {
+      next: { ...prefs, [field]: next, updatedAt: Date.now() },
+      result: undefined,
+    };
   });
+}
+
+export async function clearSamples(field: MemoryField): Promise<void> {
+  await withUserPrefsLock(async (prefs) => {
+    if (prefs[field].length === 0) return { next: prefs, result: undefined };
+    return {
+      next: { ...prefs, [field]: [], updatedAt: Date.now() },
+      result: undefined,
+    };
+  });
+}
+
+export async function runAutoLearn(
+  apiKey: string,
+  model: string,
+  provider: Provider,
+  lang: Lang,
+): Promise<void> {
+  if (!apiKey) throw new Error('NO_API_KEY');
+  const prefs = await readUserPrefs();
+  if (countSamples(prefs) < MIN_SAMPLES_TO_DISTILL) throw new Error('NOT_ENOUGH_SAMPLES');
+  const summary = await distillUserPrefs(apiKey, model, provider, lang, prefs);
+  if (!summary) throw new Error('EMPTY_SUMMARY');
+  await applyDistilledSummary(summary, lang, true);
 }

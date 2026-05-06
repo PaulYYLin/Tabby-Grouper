@@ -116,6 +116,34 @@ export function coerceProviderRecord(
 export const DEFAULT_MODEL = PROVIDERS.openrouter.defaultModel;
 export const MAX_INSTRUCTION_LEN = 512;
 
+export interface ProviderConfig {
+  provider: Provider;
+  apiKey: string;
+  model: string;
+}
+
+export async function getProviderConfig(): Promise<ProviderConfig> {
+  const stored = (await chrome.storage.sync.get([
+    'provider',
+    'apiKey',
+    'model',
+    'apiKeys',
+    'models',
+  ])) as {
+    provider?: unknown;
+    apiKey?: unknown;
+    model?: unknown;
+    apiKeys?: unknown;
+    models?: unknown;
+  };
+  const provider = isProvider(stored.provider) ? stored.provider : DEFAULT_PROVIDER;
+  const apiKey = coerceProviderRecord(stored.apiKeys, stored.apiKey)[provider];
+  const model =
+    coerceProviderRecord(stored.models, stored.model)[provider] ||
+    PROVIDERS[provider].defaultModel;
+  return { provider, apiKey, model };
+}
+
 const MAX_TITLE_LEN = 80;
 const MAX_URL_TAIL_LEN = 80;
 const MAX_TOKENS = 2048;

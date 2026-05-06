@@ -112,6 +112,37 @@ const dict = {
     userPrefsTooltip:
       '啟用後，Tabby 會在本機記錄你過去親自命名群組的字串、AI 命名你沿用的字串，以及你下過的指令；累積足夠樣本後，會用你目前的 AI 供應商把這些樣本摘要成一段提示，並在下次自動分組時注入給 AI 參考。\n\n注意：摘要呼叫會產生額外的 AI 用量（依供應商計費）。樣本與摘要僅儲存在本機 chrome.storage.local，不同步到雲端。\n\n停用後會立刻停止錄樣與摘要呼叫；已存在的本機資料仍會保留。',
 
+    memoryTitle: '💭 Memory',
+    memoryHint: '檢視並編輯個人化記憶的內容；這段摘要會在下次自動分組時注入給 AI 參考。',
+    memoryDistilledLabel: '目前的記憶摘要',
+    memoryDistilledPlaceholder: '尚未產生記憶。累積一些命名／指令後按下「執行 auto-learn」。',
+    memoryDistilledMetaEmpty: '尚未產生',
+    memoryDistilledMetaUpdated: (rel: string) => `上次更新：${rel}`,
+    memoryDistilledLangMismatch: (cached: string, current: string) =>
+      `（記憶語言為 ${cached}，目前 UI 語言為 ${current}；下次 auto-learn 會以目前語言重產）`,
+    memoryDistilledCharCount: (n: number, max: number) => `${n} / ${max}`,
+    memorySaveBtn: '儲存記憶',
+    memorySaved: '已儲存（auto-learn 已暫停）',
+    memoryPausedBanner: 'auto-learn 已暫停（你手動編輯過記憶）。背景不會再自動更新，直到你按下「執行 auto-learn」。',
+    memoryAutoLearnIdle: '達到門檻後，下次自動分組會在背景重新 auto-learn。',
+    memoryRunAutoLearn: '立即執行 auto-learn',
+    memoryRunningAutoLearn: '執行中…',
+    memoryRanAutoLearn: '已重新產生記憶',
+    memorySamplesTitle: '收集到的樣本',
+    memorySamplesCount: (n: number) => `（共 ${n} 筆）`,
+    memoryBucketUserNames: '你親自命名的（強訊號）',
+    memoryBucketAiNames: 'AI 命名你沿用的（弱訊號）',
+    memoryBucketInstructions: '你下過的指令',
+    memoryBucketEmpty: '（尚無樣本）',
+    memorySampleDeleteLabel: '刪除這筆',
+    memoryClearBucket: '清空此分類',
+    memoryClearAll: '清空全部記憶資料',
+    memoryConfirmClearBucket: (name: string) => `確定清空「${name}」全部樣本？`,
+    memoryConfirmClearAll: '確定清空全部記憶資料？包括摘要與所有樣本，且無法復原。',
+    memoryConfirmRunOverwrite: '你手動編輯過記憶。執行 auto-learn 會以新生成的摘要覆蓋你的編輯，並解除暫停狀態。要繼續嗎？',
+    memoryCleared: '已清空',
+    errNotEnoughSamples: '樣本太少，先做幾次自動分組或手動命名再試。',
+
     errNoApiKey: '尚未設定 API Key，請先打開設定頁',
     errTooFewTabs: '可分組的分頁少於 2 個',
     errNoGroupsFound: 'AI 未找到可歸類的主題群組',
@@ -246,6 +277,37 @@ const dict = {
     userPrefsTooltip:
       'When enabled, Tabby keeps a local record of group names you have typed yourself, AI-generated names you have kept, and instructions you have written. Once enough samples accumulate, your configured AI provider is asked to summarise them into a short hint that is injected into the next auto-grouping run.\n\nNote: the summarisation call uses additional AI usage (billed by your provider). Samples and the distilled summary live only in chrome.storage.local on this device and are never synced to the cloud.\n\nDisabling stops sample recording and summarisation calls immediately. Existing on-device data is preserved.',
 
+    memoryTitle: '💭 Memory',
+    memoryHint: "View and edit what Tabby has learned about your style. This summary is injected into the next auto-grouping run.",
+    memoryDistilledLabel: 'Current memory summary',
+    memoryDistilledPlaceholder: 'No memory yet. After a few groupings or renames, click "Run auto-learn".',
+    memoryDistilledMetaEmpty: 'Not generated yet',
+    memoryDistilledMetaUpdated: (rel: string) => `Last updated: ${rel}`,
+    memoryDistilledLangMismatch: (cached: string, current: string) =>
+      `(Memory is in ${cached}, current UI language is ${current}; next auto-learn will regenerate it.)`,
+    memoryDistilledCharCount: (n: number, max: number) => `${n} / ${max}`,
+    memorySaveBtn: 'Save memory',
+    memorySaved: 'Saved (auto-learn paused)',
+    memoryPausedBanner: "Auto-learn is paused (you edited the memory by hand). It won't update in the background until you click \"Run auto-learn\".",
+    memoryAutoLearnIdle: 'Once enough new samples accumulate, the next grouping will refresh this in the background.',
+    memoryRunAutoLearn: 'Run auto-learn now',
+    memoryRunningAutoLearn: 'Running…',
+    memoryRanAutoLearn: 'Memory regenerated',
+    memorySamplesTitle: 'Collected samples',
+    memorySamplesCount: (n: number) => `(${n} total)`,
+    memoryBucketUserNames: 'Names you typed yourself (strong signal)',
+    memoryBucketAiNames: 'AI names you kept (weak signal)',
+    memoryBucketInstructions: 'Instructions you wrote',
+    memoryBucketEmpty: '(no samples)',
+    memorySampleDeleteLabel: 'Remove this sample',
+    memoryClearBucket: 'Clear this bucket',
+    memoryClearAll: 'Clear all memory data',
+    memoryConfirmClearBucket: (name: string) => `Clear all samples in "${name}"?`,
+    memoryConfirmClearAll: 'Clear all memory data? The summary and every sample will be deleted. This cannot be undone.',
+    memoryConfirmRunOverwrite: "You've hand-edited the memory. Running auto-learn will overwrite your edits with a freshly generated summary and clear the paused state. Continue?",
+    memoryCleared: 'Cleared',
+    errNotEnoughSamples: 'Not enough samples yet — do a few more groupings or renames first.',
+
     errNoApiKey: 'API Key not set. Please open the settings page first.',
     errTooFewTabs: 'Fewer than 2 groupable tabs',
     errNoGroupsFound: 'AI did not find any topic groups',
@@ -318,6 +380,15 @@ export function onLangChange(cb: (lang: Lang) => void): () => void {
 export function tFor(lang: Lang): <K extends Key>(key: K) => Dict[K] {
   const d = dict[lang] as Dict;
   return <K extends Key>(key: K) => d[key];
+}
+
+export function formatRelative(t: ReturnType<typeof tFor>, ts: number): string {
+  const min = Math.round((Date.now() - ts) / 60_000);
+  if (min < 1) return t('relJustNow');
+  if (min < 60) return t('relMinutes')(min);
+  const hr = Math.round(min / 60);
+  if (hr < 24) return t('relHours')(hr);
+  return t('relDays')(Math.round(hr / 24));
 }
 
 export function applyDomI18n(t: ReturnType<typeof tFor>, root: ParentNode = document): void {

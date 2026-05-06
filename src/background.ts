@@ -7,22 +7,26 @@ import {
   syncTaskNameAndColor,
 } from './lib/groupSync';
 import {
-  DEFAULT_PROVIDER,
-  PROVIDERS,
-  coerceProviderRecord,
-  isProvider,
+  getProviderConfig,
   reclassifyTabs,
   type ExistingGroupInput,
   type TabInfo,
 } from './lib/openrouter';
 import { resumeTask } from './lib/resume';
 import {
+  clearSamples,
+  clearUserPrefs,
   getPromptHints,
   isUserPrefsEnabled,
   maybeRefreshDistill,
+  readUserPrefs,
   recordAiName,
   recordInstruction,
   recordUserName,
+  removeSample,
+  runAutoLearn,
+  updateDistilledManual,
+  type MemoryField,
 } from './lib/userPrefs';
 import {
   addPendingAddition,
@@ -57,6 +61,7 @@ import {
   type Task,
 } from './lib/tasks';
 import type {
+  GetMemoryResponse,
   GroupTabsResponse,
   ListPendingAdditionsResponse,
   ListTasksResponse,
@@ -71,7 +76,8 @@ type AnyResponse =
   | ListTasksResponse
   | ResumeTaskResponse
   | SimpleResponse
-  | ListPendingAdditionsResponse;
+  | ListPendingAdditionsResponse
+  | GetMemoryResponse;
 
 let cachedLang: Lang | null = null;
 async function currentLang(): Promise<Lang> {
@@ -112,28 +118,25 @@ async function handleMessage(msg: Message): Promise<AnyResponse> {
       return handleListPendingAdditions();
     case 'RESOLVE_PENDING_ADDITION':
       return handleResolvePendingAddition(msg.id, msg.confirm, msg.dontAskAgain);
+    case 'GET_MEMORY':
+      return handleGetMemory();
+    case 'UPDATE_DISTILLED':
+      return handleUpdateDistilled(msg.text);
+    case 'REMOVE_MEMORY_SAMPLE':
+      return handleRemoveMemorySample(msg.field, msg.value);
+    case 'CLEAR_MEMORY_SAMPLES':
+      return handleClearMemorySamples(msg.field);
+    case 'CLEAR_MEMORY_ALL':
+      return handleClearMemoryAll();
+    case 'RUN_AUTO_LEARN':
+      return handleRunAutoLearn();
   }
 }
 
 async function handleGroupTabs(instruction?: string): Promise<GroupTabsResponse> {
   const lang = await currentLang();
   const t = tFor(lang);
-  const stored = (await chrome.storage.sync.get([
-    'provider',
-    'apiKey',
-    'model',
-    'apiKeys',
-    'models',
-  ])) as {
-    provider?: unknown;
-    apiKey?: unknown;
-    model?: unknown;
-    apiKeys?: unknown;
-    models?: unknown;
-  };
-  const provider = isProvider(stored.provider) ? stored.provider : DEFAULT_PROVIDER;
-  const apiKey = coerceProviderRecord(stored.apiKeys, stored.apiKey)[provider];
-  const model = coerceProviderRecord(stored.models, stored.model)[provider];
+  const { provider, apiKey, model } = await getProviderConfig();
   if (!apiKey) {
     return { ok: false, error: t('errNoApiKey') };
   }
@@ -196,7 +199,7 @@ async function handleGroupTabs(instruction?: string): Promise<GroupTabsResponse>
 
   const result = await reclassifyTabs(
     apiKey,
-    model || PROVIDERS[provider].defaultModel,
+    model,
     existingGroups,
     freeTabInfos,
     instruction,
@@ -291,7 +294,7 @@ async function handleGroupTabs(instruction?: string): Promise<GroupTabsResponse>
     for (const g of result.newGroups) await recordAiName(g.groupName);
     void maybeRefreshDistill(
       apiKey,
-      model || PROVIDERS[provider].defaultModel,
+      model,
       provider,
       lang,
     );
@@ -424,6 +427,61 @@ async function handleResolvePendingAddition(
   }
   await updateBadge();
   return { ok: true };
+}
+
+async function handleGetMemory(): Promise<GetMemoryResponse> {
+  const prefs = await readUserPrefs();
+  return {
+    ok: true,
+    memory: {
+      distilled: prefs.distilled,
+      distilledAt: prefs.distilledAt,
+      distilledLang: prefs.distilledLang,
+      autoLearnPaused: prefs.autoLearnPaused,
+      instructions: prefs.instructions,
+      userNames: prefs.userNames,
+      aiNames: prefs.aiNames,
+    },
+  };
+}
+
+async function handleUpdateDistilled(text: string): Promise<SimpleResponse> {
+  await updateDistilledManual(text);
+  return { ok: true };
+}
+
+async function handleRemoveMemorySample(
+  field: MemoryField,
+  value: string,
+): Promise<SimpleResponse> {
+  await removeSample(field, value);
+  return { ok: true };
+}
+
+async function handleClearMemorySamples(field: MemoryField): Promise<SimpleResponse> {
+  await clearSamples(field);
+  return { ok: true };
+}
+
+async function handleClearMemoryAll(): Promise<SimpleResponse> {
+  await clearUserPrefs();
+  return { ok: true };
+}
+
+async function handleRunAutoLearn(): Promise<SimpleResponse> {
+  const lang = await currentLang();
+  const t = tFor(lang);
+  const { provider, apiKey, model } = await getProviderConfig();
+  try {
+    await runAutoLearn(apiKey, model, provider, lang);
+    return { ok: true };
+  } catch (err) {
+    const code = err instanceof Error ? err.message : String(err);
+    if (code === 'NO_API_KEY') return { ok: false, error: t('errNoApiKey') };
+    if (code === 'NOT_ENOUGH_SAMPLES') return { ok: false, error: t('errNotEnoughSamples') };
+    if (code === 'EMPTY_SUMMARY') return { ok: false, error: t('errAiEmpty') };
+    return { ok: false, error: code };
+  }
 }
 
 async function updateBadge(list?: PendingAddition[]): Promise<void> {
