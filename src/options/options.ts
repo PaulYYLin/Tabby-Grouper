@@ -30,6 +30,8 @@ const removePolicySelect = document.getElementById('remove-policy') as HTMLSelec
 const userPrefsEnabledInput = document.getElementById(
   'user-prefs-enabled',
 ) as HTMLInputElement;
+const userPrefsInfoBtn = document.getElementById('user-prefs-info-btn') as HTMLButtonElement;
+const userPrefsInfoTip = document.getElementById('user-prefs-info-tip') as HTMLDivElement;
 const saveStatus = document.getElementById('save-status') as HTMLParagraphElement;
 const langToggle = document.getElementById('lang-toggle') as HTMLDivElement;
 const langButtons = langToggle.querySelectorAll<HTMLButtonElement>('.lang-opt');
@@ -111,6 +113,30 @@ providerSelect.addEventListener('change', () => {
   apiKeyInput.value = apiKeys[provider];
   modelInput.value = models[provider];
   applyProviderHints();
+});
+
+function setUserPrefsTooltipOpen(open: boolean): void {
+  userPrefsInfoTip.hidden = !open;
+  userPrefsInfoBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+userPrefsInfoBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  setUserPrefsTooltipOpen(userPrefsInfoTip.hidden);
+});
+
+document.addEventListener('click', (e) => {
+  if (userPrefsInfoTip.hidden) return;
+  const target = e.target as Node | null;
+  if (target && (userPrefsInfoTip.contains(target) || userPrefsInfoBtn.contains(target))) return;
+  setUserPrefsTooltipOpen(false);
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !userPrefsInfoTip.hidden) {
+    setUserPrefsTooltipOpen(false);
+    userPrefsInfoBtn.focus();
+  }
 });
 
 langButtons.forEach((b) => {

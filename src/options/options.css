@@ -217,22 +217,59 @@ button:hover {
   cursor: pointer;
 }
 
+.info-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
 .info-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 18px;
   height: 18px;
+  padding: 0;
   font-size: 14px;
+  line-height: 1;
   color: var(--text-muted);
+  background: transparent;
+  border: none;
   border-radius: 50%;
-  cursor: help;
+  cursor: pointer;
   user-select: none;
 }
 
 .info-icon:hover,
-.info-icon:focus {
+.info-icon:focus-visible {
   color: var(--brand);
   background: var(--surface-alt);
   outline: none;
+}
+
+.info-icon[aria-expanded='true'] {
+  color: var(--brand);
+  background: var(--surface-alt);
+}
+
+.info-tooltip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 10;
+  width: max-content;
+  max-width: min(360px, 80vw);
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  white-space: pre-wrap;
+}
+
+.info-tooltip[hidden] {
+  display: none;
 }

@@ -109,14 +109,25 @@
             />
             <span data-i18n="userPrefsLabel"></span>
           </label>
-          <span
-            class="info-icon"
-            tabindex="0"
-            role="img"
-            data-i18n-title="userPrefsTooltip"
-            data-i18n-aria-label="userPrefsTooltipIcon"
-            >ⓘ</span
-          >
+          <span class="info-wrap">
+            <button
+              id="user-prefs-info-btn"
+              type="button"
+              class="info-icon"
+              aria-controls="user-prefs-info-tip"
+              aria-expanded="false"
+              data-i18n-aria-label="userPrefsTooltipIcon"
+            >
+              ⓘ
+            </button>
+            <div
+              id="user-prefs-info-tip"
+              class="info-tooltip"
+              role="tooltip"
+              data-i18n="userPrefsTooltip"
+              hidden
+            ></div>
+          </span>
         </div>
         <p class="hint" data-i18n="userPrefsHint"></p>
 
