@@ -101,25 +101,20 @@ Only include sections that apply. Bullets: short noun-led 繁體中文 phrases, 
 
 ## Step 5 — Compose commit message and tag message
 
-**Commit message** format (literal — `release + changelog + policy` is a fixed label):
+**Commit message** format — subject-only, literal:
 
 ```
-🔖 X.Y.Z release + changelog + policy: <one-line description>
+🔖 vX.Y.Z
 ```
 
-The description (~50–60 chars) names the release theme — what this version actually delivers. Style anchored on prior history (`Release 0.4.0: Add opt-in personalised memory and English README`):
-
-- `🔖 0.5.0 release + changelog + policy: API key validation and setup UI polish`
-- `🔖 0.4.1 release + changelog + policy: provider-name compatibility fix`
-
-The `+ policy` suffix means "this release ran the policy-align audit", not "this release edited a policy doc" — keep it whether or not Step 3 wrote any files.
+No description, no body, no `+ changelog + policy` suffix, no `release` word. The CHANGELOG already records what shipped — the commit subject doesn't repeat it. The `v` prefix matches the tag name.
 
 **Do not** add a `Co-Authored-By:` trailer. The repo convention is to omit it.
 
-**Tag**: annotated tag named exactly `vX.Y.Z` (the `v` prefix is required by `release.yml` — `on: push: tags: 'v*'`). The tag message reuses the same one-line description as the commit:
+**Tag**: annotated tag named exactly `vX.Y.Z` (the `v` prefix is required by `release.yml` — `on: push: tags: 'v*'`). The tag message matches the commit subject:
 
 ```
-🔖 X.Y.Z: <one-line description>
+🔖 vX.Y.Z
 ```
 
 ## Step 6 — Propose, then confirm
@@ -133,7 +128,7 @@ Bump:      <patch X.Y.Z → X.Y.(Z+1) | minor → X.(Y+1).0 | major → (X+1).0.
 Reason:    <one sentence — the specific diff signal that drove the choice>
 Policy:    <pass | medium drift fixed: <files> | critical drift — STOP>
 Files:     package.json, CHANGELOG.md[, <any policy-align doc fixes>]
-Message:   🔖 X.Y.Z release + changelog + policy: <description>
+Message:   🔖 vX.Y.Z
 Tag:       vX.Y.Z (annotated) — triggers .github/workflows/release.yml (Chrome Web Store upload + GitHub Release)
 CHANGELOG:
 <the entry block to be inserted, verbatim>
@@ -152,7 +147,7 @@ In order — and order matters for the CI tag check:
 5. Commit using the heredoc form, no Co-Authored-By trailer:
    ```
    git commit -m "$(cat <<'EOF'
-   🔖 X.Y.Z release + changelog + policy: <description>
+   🔖 vX.Y.Z
    EOF
    )"
    ```
@@ -162,7 +157,7 @@ In order — and order matters for the CI tag check:
 8. Create the annotated tag on the just-pushed commit:
    ```
    git tag -a vX.Y.Z -m "$(cat <<'EOF'
-   🔖 X.Y.Z: <description>
+   🔖 vX.Y.Z
    EOF
    )"
    ```
