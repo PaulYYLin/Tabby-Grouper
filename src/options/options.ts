@@ -22,7 +22,7 @@ import {
   isDraggedTabPolicy,
   type DraggedTabPolicy,
 } from '../lib/tasks';
-import { MAX_HINTS_LEN, type MemoryField } from '../lib/userPrefs';
+import { MAX_HINTS_LEN, USER_PREFS_KEY, type MemoryField } from '../lib/userPrefs';
 import type {
   MemoryView,
   GetMemoryResponse,
@@ -150,7 +150,12 @@ function syncMemoryVisibility(): void {
   memorySection.hidden = !userPrefsEnabledInput.checked;
 }
 syncMemoryVisibility();
-userPrefsEnabledInput.addEventListener('change', syncMemoryVisibility);
+userPrefsEnabledInput.addEventListener('change', () => {
+  syncMemoryVisibility();
+  // Persist immediately so popup-side recording (recordUserName, recordAiName,
+  // recordInstruction) starts taking effect without waiting for the form submit.
+  void chrome.storage.sync.set({ userPrefsEnabled: userPrefsEnabledInput.checked });
+});
 
 let lang: Lang = await getLang();
 let t = tFor(lang);
@@ -551,3 +556,10 @@ memoryClearAllBtn.addEventListener('click', async () => {
 });
 
 void loadMemory();
+
+// Refresh the memory panel whenever the underlying prefs change — covers the
+// popup-renames-task case where the user has both pages open and expects the
+// strong-signal bucket to update without manually reloading options.
+chrome.storage.local.onChanged.addListener((changes) => {
+  if (USER_PREFS_KEY in changes) void loadMemory();
+});

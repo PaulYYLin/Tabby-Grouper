@@ -49,6 +49,7 @@ import {
   setCachedGroupForTab,
   setDraggedTabPolicy,
   setPendingAdditions,
+  setTaskIdForGroup,
 } from './lib/storage';
 import {
   GROUP_MAP_KEY,
@@ -322,11 +323,42 @@ async function handleResumeTask(taskId: string): Promise<ResumeTaskResponse> {
   }
 }
 
-async function handleDeleteTask(taskId: string): Promise<SimpleResponse> {
+// Locates the live tabGroup id for a task. Prefers the session-storage binding,
+// but falls back to matching by (name, color) among unbound live groups when
+// the binding is missing — e.g. after the rebuild on cold-start failed to pair
+// because the tab set drifted past the Jaccard threshold. Re-binds on success
+// so subsequent calls hit the fast path.
+async function findGroupIdForTask(
+  taskId: string,
+  hint: { name: string; color: chrome.tabGroups.ColorEnum },
+): Promise<number | undefined> {
   const map = await readGroupTaskMap();
-  const groupIdStr = Object.keys(map).find((gid) => map[Number(gid)] === taskId);
-  if (groupIdStr !== undefined) {
-    const groupId = Number(groupIdStr);
+  const fromMap = Object.keys(map).find((gid) => map[Number(gid)] === taskId);
+  if (fromMap !== undefined) return Number(fromMap);
+  try {
+    const groups = await chrome.tabGroups.query({});
+    const taken = new Set(Object.keys(map).map((g) => Number(g)));
+    const match = groups.find(
+      (g) => !taken.has(g.id) && (g.title ?? '') === hint.name && g.color === hint.color,
+    );
+    if (match) {
+      await setTaskIdForGroup(match.id, taskId);
+      return match.id;
+    }
+  } catch {
+    // tabGroups API may be unavailable in this context
+  }
+  return undefined;
+}
+
+async function handleDeleteTask(taskId: string): Promise<SimpleResponse> {
+  await ensureCachesReady();
+  const state = await readTasks();
+  const before = state.tasks[taskId];
+  const groupId = before
+    ? await findGroupIdForTask(taskId, { name: before.name, color: before.color })
+    : undefined;
+  if (groupId !== undefined) {
     try {
       const groupTabs = await chrome.tabs.query({ groupId });
       const tabIds = groupTabs
@@ -365,21 +397,29 @@ async function handleUpdateTaskName(
     const t = tFor(await currentLang());
     return { ok: false, error: t('errEmptyTaskName') };
   }
+  await ensureCachesReady();
+  const state = await readTasks();
+  const before = state.tasks[taskId];
   await mutateTask(taskId, (t) => ({
     ...t,
     name: trimmed,
     updatedAt: Date.now(),
   }));
-  const map = await readGroupTaskMap();
-  const groupIdStr = Object.keys(map).find((gid) => map[Number(gid)] === taskId);
-  if (groupIdStr !== undefined) {
+  const groupId = before
+    ? await findGroupIdForTask(taskId, { name: before.name, color: before.color })
+    : undefined;
+  if (groupId !== undefined) {
     try {
-      await chrome.tabGroups.update(Number(groupIdStr), { title: trimmed });
+      await chrome.tabGroups.update(groupId, { title: trimmed });
     } catch {
       // group may have been removed before the update landed
     }
   }
   if (await isUserPrefsEnabled()) {
+    if (before && before.name && before.name !== trimmed) {
+      await removeSample('aiNames', before.name);
+      await removeSample('userNames', before.name);
+    }
     await recordUserName(trimmed);
   }
   return { ok: true };
@@ -677,7 +717,27 @@ chrome.tabGroups.onUpdated.addListener((group) => {
   void (async () => {
     const taskId = await getTaskIdForGroup(group.id);
     if (!taskId) return;
+    // Capture pre-sync name so we can detect a Chrome-side rename. Our own
+    // handleUpdateTaskName path mutates the task BEFORE calling
+    // chrome.tabGroups.update, so by the time this listener runs the task
+    // already matches group.title — the comparison below short-circuits and
+    // we don't double-record. A right-click rename in Chrome's UI never
+    // touched the task first, so the names differ and we record.
+    const stateBefore = await readTasks();
+    const before = stateBefore.tasks[taskId];
     await syncTaskNameAndColor(group.id, taskId, group);
+    const newTitle = (group.title ?? '').trim();
+    if (
+      before &&
+      before.name &&
+      newTitle &&
+      newTitle !== before.name &&
+      (await isUserPrefsEnabled())
+    ) {
+      await removeSample('aiNames', before.name);
+      await removeSample('userNames', before.name);
+      await recordUserName(newTitle);
+    }
   })();
 });
 
